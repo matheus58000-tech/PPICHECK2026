@@ -2,6 +2,27 @@
 session_start();
 require_once 'conexao.php'; // Conecta com o banco de dados
 
+// Função para gerar um código aleatório e verificar se já existe no banco
+function gerarCodigoUnico($conn) {
+    $codigo = '';
+    $existe = true;
+    while ($existe) {
+        $caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        $aleatorio = substr(str_shuffle($caracteres), 0, 5);
+        $codigo = 'CHK-' . $aleatorio;
+        
+        $stmt = $conn->prepare("SELECT id FROM usuarios WHERE codigo_usuario = ?");
+        $stmt->bind_param("s", $codigo);
+        $stmt->execute();
+        $stmt->store_result();
+        if ($stmt->num_rows == 0) {
+            $existe = false;
+        }
+        $stmt->close();
+    }
+    return $codigo;
+}
+
 // =========================================================================
 // 1. SEGURANÇA E CONTROLE DE ACESSO
 // =========================================================================
@@ -116,9 +137,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
                     $mensagem_lab = "<script>window.onload = function() { showToast('As senhas não coincidem!', 'error'); }</script>";
                     $sub_aba_ativa = "tab-novo-usuario"; 
                 } else {
+                    $codigo_usuario = gerarCodigoUnico($conn); // GERA O CÓDIGO AQUI
+                    
                     $hash = password_hash($senha, PASSWORD_DEFAULT);
-                    $stmt_add = $conn->prepare("INSERT INTO usuarios (nome, cpf, matricula, siape, email, data_nascimento, senha, tipo_usuario) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt_add->bind_param("ssssssss", $nome, $cpf, $matricula, $siape, $email, $nascimento, $hash, $tipo);
+                    // INSERE O CÓDIGO NO BANCO
+                    $stmt_add = $conn->prepare("INSERT INTO usuarios (nome, cpf, matricula, siape, email, data_nascimento, senha, tipo_usuario, codigo_usuario) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt_add->bind_param("sssssssss", $nome, $cpf, $matricula, $siape, $email, $nascimento, $hash, $tipo, $codigo_usuario);
                     
                     $stmt_add->execute();
                     $mensagem_lab = "<script>window.onload = function() { showToast('Usuário cadastrado com sucesso!', 'success'); }</script>";
@@ -210,7 +234,7 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
             
             <div class="nav-separator"></div>
             
-            <a href="index.php" class="logout-btn">
+            <a href="logout.php" class="logout-btn">
                 <i class="bi bi-box-arrow-right"></i>
                 <span class="nav-text">Sair</span>
             </a>
@@ -808,6 +832,7 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
                     <div class="pedidos-detail-container" id="pedidos-detail-<?php echo $id_u; ?>" style="display: none;">
                         <h4>Detalhes - <span class="user-name-placeholder"><?php echo htmlspecialchars($u['nome']); ?></span></h4>
                         <p style="margin-bottom: 10px;">
+                           <strong>Código:</strong> <?php echo !empty($u['codigo_usuario']) ? htmlspecialchars($u['codigo_usuario']) : '-'; ?> | 
                            <strong>CPF:</strong> <?php echo !empty($u['cpf']) ? htmlspecialchars($u['cpf']) : '-'; ?> | 
                            <strong>Matrícula:</strong> <?php echo !empty($u['matricula']) ? htmlspecialchars($u['matricula']) : '-'; ?> | 
                            <strong>SIAPE:</strong> <?php echo !empty($u['siape']) ? htmlspecialchars($u['siape']) : '-'; ?>
@@ -1228,6 +1253,9 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
         }
 
         function submitFormLab(e, returnTabId, msg) {
+            // Essa função previne o submit padrão só pra mostrar o Toast, 
+            // no mundo real você enviaria os dados via AJAX ou deixaria o PHP processar.
+            // Por enquanto deixei assim pra visualização.
             e.preventDefault();
             showToast(msg, 'success');
             switchLabTab(returnTabId, 'Gerenciamento');
