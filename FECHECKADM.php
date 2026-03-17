@@ -32,23 +32,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
     $resultado_check = $stmt_check->get_result();
     $user_db = $resultado_check->fetch_assoc();
 
-    if (!empty($nova_senha)) {
-        if ($nova_senha !== $confirma_senha) {
-            $mensagem_conta = "<div style='color: #d9534f; font-weight: bold; margin-bottom: 15px;'><i class='bi bi-exclamation-triangle'></i> As novas senhas não coincidem.</div>";
-        } else if (!password_verify($senha_atual, $user_db['senha'])) {
-            $mensagem_conta = "<div style='color: #d9534f; font-weight: bold; margin-bottom: 15px;'><i class='bi bi-exclamation-triangle'></i> A senha atual está incorreta.</div>";
+    try {
+        if (!empty($nova_senha)) {
+            if ($nova_senha !== $confirma_senha) {
+                $mensagem_conta = "<script>window.onload = function() { showToast('As novas senhas não coincidem.', 'error'); }</script>";
+            } else if (!password_verify($senha_atual, $user_db['senha'])) {
+                $mensagem_conta = "<script>window.onload = function() { showToast('A senha atual está incorreta.', 'error'); }</script>";
+            } else {
+                $senha_hash = password_hash($nova_senha, PASSWORD_DEFAULT);
+                $stmt_upd = $conn->prepare("UPDATE usuarios SET email = ?, senha = ? WHERE id = ?");
+                $stmt_upd->bind_param("ssi", $novo_email, $senha_hash, $id_usuario);
+                $stmt_upd->execute();
+                $mensagem_conta = "<script>window.onload = function() { showToast('Dados e senha atualizados com sucesso!', 'success'); }</script>";
+            }
         } else {
-            $senha_hash = password_hash($nova_senha, PASSWORD_DEFAULT);
-            $stmt_upd = $conn->prepare("UPDATE usuarios SET email = ?, senha = ? WHERE id = ?");
-            $stmt_upd->bind_param("ssi", $novo_email, $senha_hash, $id_usuario);
+            $stmt_upd = $conn->prepare("UPDATE usuarios SET email = ? WHERE id = ?");
+            $stmt_upd->bind_param("si", $novo_email, $id_usuario);
             $stmt_upd->execute();
-            $mensagem_conta = "<div style='color: #28a745; font-weight: bold; margin-bottom: 15px;'><i class='bi bi-check-circle'></i> Dados atualizados com sucesso!</div>";
+            $mensagem_conta = "<script>window.onload = function() { showToast('Email atualizado com sucesso!', 'success'); }</script>";
         }
-    } else {
-        $stmt_upd = $conn->prepare("UPDATE usuarios SET email = ? WHERE id = ?");
-        $stmt_upd->bind_param("si", $novo_email, $id_usuario);
-        $stmt_upd->execute();
-        $mensagem_conta = "<div style='color: #28a745; font-weight: bold; margin-bottom: 15px;'><i class='bi bi-check-circle'></i> Email atualizado com sucesso!</div>";
+    } catch (mysqli_sql_exception $e) {
+        $mensagem_conta = "<script>window.onload = function() { showToast('Erro: O E-mail digitado já está em uso.', 'error'); }</script>";
     }
 }
 
@@ -60,74 +64,70 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
     $sub_aba_ativa = "tab-usuarios";
     $acao = $_POST['acao_usuario'];
     
-    // Pega o ID alvo (pode não existir na ação de adicionar, então usamos o operador ??)
     $id_alvo = isset($_POST['id_alvo']) ? intval($_POST['id_alvo']) : 0;
 
-    // --- BLOQUEAR, EXCLUIR E EDITAR ---
     if ($id_alvo === $id_usuario && ($acao === 'excluir' || $acao === 'bloquear')) {
-        $mensagem_lab = "<script>alert('Você não pode bloquear ou excluir a própria conta!');</script>";
+        $mensagem_lab = "<script>window.onload = function() { showToast('Você não pode bloquear ou excluir a própria conta!', 'warning'); }</script>";
     } else {
-        if ($acao === 'bloquear') {
-            $conn->query("UPDATE usuarios SET status = IF(status='ativo', 'bloqueado', 'ativo') WHERE id = $id_alvo");
-            $mensagem_lab = "<script>alert('Status do usuário alterado com sucesso!');</script>";
-        
-        } elseif ($acao === 'excluir') {
-            $conn->query("DELETE FROM usuarios WHERE id = $id_alvo");
-            $mensagem_lab = "<script>alert('Usuário excluído permanentemente!');</script>";
-        
-        } elseif ($acao === 'editar') {
-            $nome = $_POST['edit_nome'];
-            $email = $_POST['edit_email'];
-            $cpf = $_POST['edit_cpf'];
-            $matricula = $_POST['edit_matricula'];
-            $siape = $_POST['edit_siape'];
-            $tipo = $_POST['edit_tipo'];
-            $nova_senha = $_POST['edit_senha'];
-
-            if (!empty($nova_senha)) {
-                $hash = password_hash($nova_senha, PASSWORD_DEFAULT);
-                $stmt_edit = $conn->prepare("UPDATE usuarios SET nome=?, email=?, cpf=?, matricula=?, siape=?, tipo_usuario=?, senha=? WHERE id=?");
-                $stmt_edit->bind_param("sssssssi", $nome, $email, $cpf, $matricula, $siape, $tipo, $hash, $id_alvo);
-            } else {
-                $stmt_edit = $conn->prepare("UPDATE usuarios SET nome=?, email=?, cpf=?, matricula=?, siape=?, tipo_usuario=? WHERE id=?");
-                $stmt_edit->bind_param("ssssssi", $nome, $email, $cpf, $matricula, $siape, $tipo, $id_alvo);
-            }
+        try {
+            if ($acao === 'bloquear') {
+                $conn->query("UPDATE usuarios SET status = IF(status='ativo', 'bloqueado', 'ativo') WHERE id = $id_alvo");
+                $mensagem_lab = "<script>window.onload = function() { showToast('Status do usuário alterado com sucesso!', 'success'); }</script>";
             
-            if ($stmt_edit->execute()) {
-                $mensagem_lab = "<script>alert('Dados do usuário atualizados com sucesso!');</script>";
-            } else {
-                $mensagem_lab = "<script>alert('Erro ao atualizar: Verifique se CPF, Matrícula ou E-mail já existem.');</script>";
-            }
-        
-        // --- NOVO: ADICIONAR USUÁRIO ---
-        } elseif ($acao === 'adicionar') {
-            $tipo = $_POST['add_tipo'];
-            $cpf = $_POST['add_cpf'];
-            $nome = $_POST['add_nome'];
-            $email = $_POST['add_email'];
-            $nascimento = $_POST['add_nascimento'];
-            $senha = $_POST['add_senha'];
-            $confirma = $_POST['add_confirma'];
+            } elseif ($acao === 'excluir') {
+                $conn->query("DELETE FROM usuarios WHERE id = $id_alvo");
+                $mensagem_lab = "<script>window.onload = function() { showToast('Usuário excluído permanentemente!', 'success'); }</script>";
             
-            // Lógica do campo dinâmico
-            $dinamico = isset($_POST['add_dinamico']) ? $_POST['add_dinamico'] : null;
-            $matricula = ($tipo === 'padrao') ? $dinamico : null;
-            $siape = ($tipo === 'admin') ? $dinamico : null;
+            } elseif ($acao === 'editar') {
+                $nome = $_POST['edit_nome'];
+                $email = $_POST['edit_email'];
+                $cpf = $_POST['edit_cpf'];
+                $matricula = $_POST['edit_matricula'];
+                $siape = $_POST['edit_siape'];
+                $tipo = $_POST['edit_tipo'];
+                $nova_senha = $_POST['edit_senha'];
 
-            if ($senha !== $confirma) {
-                $mensagem_lab = "<script>alert('As senhas não coincidem!');</script>";
-                $sub_aba_ativa = "tab-novo-usuario"; // Mantém na tela de adicionar caso erre
-            } else {
-                $hash = password_hash($senha, PASSWORD_DEFAULT);
-                $stmt_add = $conn->prepare("INSERT INTO usuarios (nome, cpf, matricula, siape, email, data_nascimento, senha, tipo_usuario) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt_add->bind_param("ssssssss", $nome, $cpf, $matricula, $siape, $email, $nascimento, $hash, $tipo);
-                
-                if ($stmt_add->execute()) {
-                    $mensagem_lab = "<script>alert('Usuário cadastrado com sucesso!');</script>";
+                if (!empty($nova_senha)) {
+                    $hash = password_hash($nova_senha, PASSWORD_DEFAULT);
+                    $stmt_edit = $conn->prepare("UPDATE usuarios SET nome=?, email=?, cpf=?, matricula=?, siape=?, tipo_usuario=?, senha=? WHERE id=?");
+                    $stmt_edit->bind_param("sssssssi", $nome, $email, $cpf, $matricula, $siape, $tipo, $hash, $id_alvo);
                 } else {
-                    $mensagem_lab = "<script>alert('Erro ao cadastrar: E-mail, CPF, Matrícula ou SIAPE já estão em uso.');</script>";
-                    $sub_aba_ativa = "tab-novo-usuario";
+                    $stmt_edit = $conn->prepare("UPDATE usuarios SET nome=?, email=?, cpf=?, matricula=?, siape=?, tipo_usuario=? WHERE id=?");
+                    $stmt_edit->bind_param("ssssssi", $nome, $email, $cpf, $matricula, $siape, $tipo, $id_alvo);
                 }
+                
+                $stmt_edit->execute();
+                $mensagem_lab = "<script>window.onload = function() { showToast('Dados do usuário atualizados com sucesso!', 'success'); }</script>";
+            
+            } elseif ($acao === 'adicionar') {
+                $tipo = $_POST['add_tipo'];
+                $cpf = $_POST['add_cpf'];
+                $nome = $_POST['add_nome'];
+                $email = $_POST['add_email'];
+                $nascimento = $_POST['add_nascimento'];
+                $senha = $_POST['add_senha'];
+                $confirma = $_POST['add_confirma'];
+                
+                $dinamico = isset($_POST['add_dinamico']) ? $_POST['add_dinamico'] : null;
+                $matricula = ($tipo === 'padrao') ? $dinamico : null;
+                $siape = ($tipo === 'admin') ? $dinamico : null;
+
+                if ($senha !== $confirma) {
+                    $mensagem_lab = "<script>window.onload = function() { showToast('As senhas não coincidem!', 'error'); }</script>";
+                    $sub_aba_ativa = "tab-novo-usuario"; 
+                } else {
+                    $hash = password_hash($senha, PASSWORD_DEFAULT);
+                    $stmt_add = $conn->prepare("INSERT INTO usuarios (nome, cpf, matricula, siape, email, data_nascimento, senha, tipo_usuario) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt_add->bind_param("ssssssss", $nome, $cpf, $matricula, $siape, $email, $nascimento, $hash, $tipo);
+                    
+                    $stmt_add->execute();
+                    $mensagem_lab = "<script>window.onload = function() { showToast('Usuário cadastrado com sucesso!', 'success'); }</script>";
+                }
+            }
+        } catch (mysqli_sql_exception $e) {
+            $mensagem_lab = "<script>window.onload = function() { showToast('ERRO: CPF, Matrícula, SIAPE ou E-mail já estão em uso.', 'error'); }</script>";
+            if ($acao === 'adicionar') {
+                $sub_aba_ativa = "tab-novo-usuario";
             }
         }
     }
@@ -158,6 +158,7 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
     
     <link rel="stylesheet" href="FECHECKADMCSS.css"> 
     <?php echo $mensagem_lab; ?>
+    <?php echo $mensagem_conta; ?>
 </head>
 <body>
 
@@ -328,7 +329,7 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
                     <input type="text" value="10" class="qty-input" readonly>
                     <button class="qty-btn plus" onclick="updateQty(this, 1)">+</button>
                 </div>
-                <button class="remove-btn" title="Remover item"><i class="bi bi-trash"></i></button>
+                <button class="remove-btn" title="Remover item" onclick="showToast('Item removido do carrinho.', 'warning')"><i class="bi bi-trash"></i></button>
             </div>
 
             <div class="cart-item">
@@ -342,7 +343,7 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
                     <input type="text" value="5" class="qty-input" readonly>
                     <button class="qty-btn plus" onclick="updateQty(this, 1)">+</button>
                 </div>
-                <button class="remove-btn" title="Remover item"><i class="bi bi-trash"></i></button>
+                <button class="remove-btn" title="Remover item" onclick="showToast('Item removido do carrinho.', 'warning')"><i class="bi bi-trash"></i></button>
             </div>
 
             <div class="cart-item">
@@ -356,7 +357,7 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
                     <input type="text" value="20" class="qty-input" readonly>
                     <button class="qty-btn plus" onclick="updateQty(this, 1)">+</button>
                 </div>
-                <button class="remove-btn" title="Remover item"><i class="bi bi-trash"></i></button>
+                <button class="remove-btn" title="Remover item" onclick="showToast('Item removido do carrinho.', 'warning')"><i class="bi bi-trash"></i></button>
             </div>
 
         </div>
@@ -375,7 +376,7 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
             <div class="filter-container">
                 <div class="filter-actions">
                     <label for="statusFilter" class="filter-label">Filtrar por:</label>
-                    <select id="statusFilter" class="filter-select">
+                    <select id="statusFilter" class="filter-select" onchange="filterPedidos(this.value)">
                         <option value="todos">Todos</option>
                         <option value="aguardando">Aguardando</option>
                         <option value="producao">Em Produção</option>
@@ -387,9 +388,9 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
             </div>
         </div>
 
-        <div class="pedidos-list">
+        <div class="pedidos-list" id="lista-de-pedidos-aluno">
 
-            <div class="pedido-card">
+            <div class="pedido-card" data-status="aguardando">
                 <div class="pedido-header">
                     <div class="id-group">
                         <h3>Pedido #2024-005</h3>
@@ -420,7 +421,7 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
                 </div>
             </div>
 
-            <div class="pedido-card">
+            <div class="pedido-card" data-status="producao">
                 <div class="pedido-header">
                     <div class="id-group">
                         <h3>Pedido #2024-004</h3>
@@ -451,7 +452,7 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
                 </div>
             </div>
 
-            <div class="pedido-card">
+            <div class="pedido-card" data-status="recusado">
                 <div class="pedido-header">
                     <div class="id-group">
                         <h3>Pedido #2024-003</h3>
@@ -486,7 +487,7 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
                 </div>
             </div>
 
-            <div class="pedido-card">
+            <div class="pedido-card" data-status="retirado">
                 <div class="pedido-header">
                     <div class="id-group">
                         <h3>Pedido #2024-002</h3>
@@ -526,7 +527,7 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
                 </div>
             </div>
 
-            <div class="pedido-card">
+            <div class="pedido-card" data-status="finalizado">
                 <div class="pedido-header">
                     <div class="id-group">
                         <h3>Pedido #2024-001</h3>
@@ -570,8 +571,6 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
             <form method="POST" action="FECHECKADM.php">
                 <input type="hidden" name="atualizar_conta" value="1">
                 
-                <?php echo $mensagem_conta; ?>
-
                 <div class="input-group">
                     <label>Nome Completo</label>
                     <input type="text" name="nome" value="<?php echo $nome_exibicao; ?>" readonly style="background-color: #e9ecef; cursor: not-allowed;">
@@ -1022,8 +1021,29 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
         </div>
     </div>
 
+    <div id="toast-container"></div>
 
     <script>
+        // ================= LÓGICA TOAST =================
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `custom-toast ${type}`;
+            
+            let icon = 'bi-check-circle';
+            if(type === 'error') icon = 'bi-exclamation-octagon';
+            if(type === 'warning') icon = 'bi-exclamation-triangle';
+
+            toast.innerHTML = `<i class="bi ${icon}" style="font-size:1.2rem;"></i> <span>${msg}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
         // ================= NAVEGAÇÃO E SPA =================
         function switchAppView(viewId, element) {
             document.querySelectorAll('.main-view').forEach(v => v.style.display = 'none');
@@ -1062,7 +1082,6 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
                 input.required = true;
                 input.placeholder = 'Digite o SIAPE';
             } else {
-                // Responsável ou vazio não pede nem Matrícula nem SIAPE
                 grupo.style.display = 'none';
                 input.required = false;
                 input.value = '';
@@ -1087,7 +1106,6 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
 
         // ================= OUTRAS FUNÇÕES JS =================
         function openProductModal(card) {
-            // ... [código mantido intacto]
             document.getElementById('modal-img').src = card.getAttribute('data-img');
             document.getElementById('modal-title').innerText = card.getAttribute('data-name');
             document.getElementById('modal-cat').innerText = card.getAttribute('data-cat');
@@ -1114,7 +1132,7 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
             document.getElementById('product-modal').style.display = 'flex';
         }
         function closeProductModal() { document.getElementById('product-modal').style.display = 'none'; }
-        function addToCartFromModal() { alert('Item adicionado!'); closeProductModal(); }
+        function addToCartFromModal() { showToast('Item adicionado ao carrinho!', 'success'); closeProductModal(); }
 
         function updateQty(btn, change) {
             const input = btn.parentElement.querySelector('.qty-input');
@@ -1127,11 +1145,15 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
             btn.parentElement.querySelectorAll('.day-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
         }
-        function confirmOrder() { alert('Pedido Confirmado!'); closeCheckoutModal(); switchAppView('view-pedidos', document.getElementById('nav-pedidos-btn')); }
+        function confirmOrder() { 
+            showToast('Pedido Finalizado com sucesso!', 'success'); 
+            closeCheckoutModal(); 
+            switchAppView('view-pedidos', document.getElementById('nav-pedidos-btn')); 
+        }
 
         function openRenewalModal() { document.getElementById('modalRenovacao').style.display = 'flex'; }
         function closeRenewalModal() { document.getElementById('modalRenovacao').style.display = 'none'; }
-        function confirmRenewal() { alert('Renovação solicitada com sucesso!'); closeRenewalModal(); }
+        function confirmRenewal() { showToast('Renovação solicitada com sucesso!', 'success'); closeRenewalModal(); }
 
         function switchLabFilter(targetId, btn) {
             document.querySelectorAll('#tab-pedidos-lab .btn-filter').forEach(b => b.classList.remove('active'));
@@ -1140,8 +1162,8 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
             document.getElementById(targetId).style.display = 'block';
         }
 
-        function aprovarPedido(id) { if(confirm('Aprovar pedido #' + id + '?')) { alert('Pedido Aprovado!'); } }
-        function devolverPedido(id) { if(confirm('Confirmar devolução do pedido #' + id + '?')) { alert('Devolução registrada!'); } }
+        function aprovarPedido(id) { if(confirm('Aprovar pedido #' + id + '?')) { showToast('Pedido Aprovado!', 'success'); } }
+        function devolverPedido(id) { if(confirm('Confirmar devolução do pedido #' + id + '?')) { showToast('Devolução registrada!', 'success'); } }
         
         let pedidoAtualId = null;
         function abrirModalRecusa(id) {
@@ -1153,7 +1175,7 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
         function fecharModalRecusa() { document.getElementById('modal-recusa').style.display = 'none'; pedidoAtualId = null;}
         function confirmarRecusa() { 
             if(pedidoAtualId) {
-                alert(`Pedido #${pedidoAtualId} RECUSADO.\nJustificativa: ` + (document.getElementById('justificativa').value || 'Nenhuma')); 
+                showToast(`Pedido #${pedidoAtualId} RECUSADO.`, 'error'); 
                 fecharModalRecusa(); 
             }
         }
@@ -1203,6 +1225,12 @@ $email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
             if (event.target.classList.contains('modal-overlay')) {
                 event.target.style.display = 'none';
             }
+        }
+
+        function submitFormLab(e, returnTabId, msg) {
+            e.preventDefault();
+            showToast(msg, 'success');
+            switchLabTab(returnTabId, 'Gerenciamento');
         }
 
         // ================= RETORNO DA ABA APÓS RECARREGAR (PHP) =================
