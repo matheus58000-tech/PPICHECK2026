@@ -30,13 +30,70 @@ body { background-color: #0d005f; display: flex; justify-content: center; align-
 .role-btn { flex: 1; padding: 10px 0; font-size: 0.85rem; font-weight: 700; border: 2px solid #0d005f; border-radius: 5px; cursor: pointer; transition: all 0.3s ease; background-color: #0d005f; color: #ffffff; }
 .role-btn.active { background-color: #ffffff; color: #0d005f; }
 
-.input-group { margin-bottom: 15px; width: 100%; }
-.input-row { display: flex; gap: 10px; width: 100%; }
-.input-row .input-group { flex: 1; margin-bottom: 15px; }
+/* ========================================================== */
+/* INPUTS E MENSAGENS DE ERRO INLINE (CORRIGIDO)              */
+/* ========================================================== */
+.input-group { 
+    margin-bottom: 28px !important; /* Espaço pro texto caber sem bugar o botão */
+    width: 100%; 
+    position: relative !important; /* Prende a mensagem embaixo dele */
+}
 
-.input-group input { width: 100%; height: 45px; border: 2px solid #0d005f; border-radius: 5px; padding: 0 15px; font-size: 1rem; outline: none; font-weight: 600; }
+.input-row { display: flex; gap: 10px; width: 100%; }
+.input-row .input-group { flex: 1; margin-bottom: 28px !important; }
+
+.input-group input { width: 100%; height: 45px; border: 2px solid #0d005f; border-radius: 5px; padding: 0 15px; font-size: 1rem; outline: none; font-weight: 600; transition: 0.3s ease; }
 .input-group input:focus { box-shadow: 0 0 5px rgba(13, 0, 95, 0.5); }
 .input-group input::placeholder { color: #ccc; font-weight: 400; }
+
+/* O campo pintado de vermelho */
+.input-group input.input-error {
+    border: 2px solid #dc3545 !important;
+    background-color: #fff8f8 !important;
+    color: #dc3545 !important;
+}
+.input-group input.input-error:focus {
+    box-shadow: 0 0 5px rgba(220, 53, 69, 0.4) !important;
+}
+
+/* A mensagem de erro absoluta e VIVAMENTE VERMELHA */
+.error-text {
+    position: absolute !important;
+    bottom: -22px !important;
+    left: 2px !important;
+    color: #dc3545 !important;
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    white-space: nowrap !important;
+}
+.error-text i { font-size: 0.9rem !important; color: #dc3545 !important; }
+
+/* Erro solto no topo (Cadastro) */
+.error-text-cadastro {
+    color: #dc3545 !important;
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
+    margin-bottom: 15px !important;
+    text-align: center !important;
+    display: flex !important;
+    justify-content: center !important;
+    gap: 5px !important;
+}
+
+.success-box {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #badbcc;
+    margin-bottom: 20px;
+    font-weight: 600;
+    text-align: center;
+    font-size: 0.9rem;
+}
 
 input[type="date"] { color: #555; text-transform: uppercase; }
 input[type="date"]:focus, input[type="date"]:valid { color: #000; }
