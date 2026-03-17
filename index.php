@@ -1,10 +1,23 @@
+<?php
+session_start();
+
+// Captura os erros ou sucessos da sessão
+$erro_campo = isset($_SESSION['erro_campo']) ? $_SESSION['erro_campo'] : '';
+$erro_msg = isset($_SESSION['erro_msg']) ? $_SESSION['erro_msg'] : '';
+$msg_sucesso = isset($_SESSION['msg_sucesso']) ? $_SESSION['msg_sucesso'] : '';
+$ultimo_tipo_login = isset($_SESSION['ultimo_tipo_login']) ? $_SESSION['ultimo_tipo_login'] : 'padrao';
+
+// Limpa a memória para não mostrar o erro de novo se a pessoa apertar F5
+unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso']);
+?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema Check</title>
-    <link rel="stylesheet" href="FELOGINCHECKCSS.css">
+    <link rel="stylesheet" href="FELOGINCHECKCSS.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -25,6 +38,10 @@
                 <div id="view-login" class="view-section active">
                     <h2 class="form-title">LOGIN</h2>
 
+                    <?php if(!empty($msg_sucesso)): ?>
+                        <div class="success-box"><i class="bi bi-check-circle"></i> <?php echo $msg_sucesso; ?></div>
+                    <?php endif; ?>
+
                     <div class="role-selector">
                         <button type="button" class="role-btn active" data-role="padrao">PADRÃO</button>
                         <button type="button" class="role-btn" data-role="resp">RESP.</button>
@@ -32,15 +49,22 @@
                     </div>
 
                     <form id="login-form" action="login.php" method="POST">
-                        
                         <input type="hidden" name="tipo_login" id="tipo-login-hidden" value="padrao">
 
                         <div class="input-group">
-                            <input type="text" id="login-identificador" name="usuario" placeholder="Matrícula" required>
+                            <input type="text" id="login-identificador" name="usuario" placeholder="Matrícula" required class="<?php echo ($erro_campo === 'usuario') ? 'input-error' : ''; ?>">
+                            <?php if($erro_campo === 'usuario'): ?>
+                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erro_msg; ?></div>
+                            <?php endif; ?>
                         </div>
+
                         <div class="input-group">
-                            <input type="password" name="senha" placeholder="Senha" required>
+                            <input type="password" name="senha" placeholder="Senha" required class="<?php echo ($erro_campo === 'senha') ? 'input-error' : ''; ?>">
+                            <?php if($erro_campo === 'senha'): ?>
+                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erro_msg; ?></div>
+                            <?php endif; ?>
                         </div>
+
                         <button type="submit" class="btn-primary">ACESSAR</button>
                     </form>
 
@@ -53,6 +77,10 @@
                 <div id="view-register" class="view-section hidden">
                     <h2 class="form-title" style="margin-bottom: 0;">CADASTRO</h2>
                     <h3 class="form-subtitle">USUÁRIO PADRÃO</h3>
+
+                    <?php if($erro_campo === 'cadastro'): ?>
+                        <div class="error-text-cadastro"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erro_msg; ?></div>
+                    <?php endif; ?>
 
                     <form action="cadastrar.php" method="POST">
                         <div class="input-group">
@@ -110,6 +138,7 @@
     </div>
 
     <script>
+        // NAVEGAÇÃO ENTRE ABAS
         const viewLogin = document.getElementById('view-login');
         const viewRegister = document.getElementById('view-register');
         const viewRecover = document.getElementById('view-recover');
@@ -119,10 +148,8 @@
         const linksGoLogin = document.querySelectorAll('.link-go-login');
 
         const roleButtons = document.querySelectorAll('.role-btn');
-        const loginForm = document.getElementById('login-form');
-        
         const loginIdentificador = document.getElementById('login-identificador');
-        const tipoLoginHidden = document.getElementById('tipo-login-hidden'); // Nova variável para o input oculto
+        const tipoLoginHidden = document.getElementById('tipo-login-hidden'); 
 
         function switchView(viewToShow) {
             viewLogin.classList.add('hidden');
@@ -138,31 +165,41 @@
             link.addEventListener('click', (e) => { e.preventDefault(); switchView(viewLogin); });
         });
 
+        // MUDANÇA DE TIPO DE LOGIN
+        function setRole(role) {
+            roleButtons.forEach(btn => btn.classList.remove('active'));
+            const button = document.querySelector(`.role-btn[data-role="${role}"]`);
+            if (button) button.classList.add('active');
+            
+            tipoLoginHidden.value = role;
+            
+            if(role === 'padrao') {
+                linkGoRegister.style.display = 'block';
+                loginIdentificador.placeholder = "Matrícula";
+            } else if(role === 'resp') {
+                linkGoRegister.style.display = 'none';
+                loginIdentificador.placeholder = "CPF";
+            } else if(role === 'admin') {
+                linkGoRegister.style.display = 'none';
+                loginIdentificador.placeholder = "SIAPE";
+            }
+        }
+
         roleButtons.forEach(button => {
             button.addEventListener('click', () => {
-                roleButtons.forEach(btn => btn.classList.remove('active'));
-                button.classList.add('active');
-                
-                const role = button.getAttribute('data-role');
-                
-                // Atualiza o valor que será enviado para o PHP
-                tipoLoginHidden.value = role;
-                
-                loginIdentificador.value = "";
-                
-                if(role === 'padrao') {
-                    linkGoRegister.style.display = 'block';
-                    loginIdentificador.placeholder = "Matrícula";
-                } else if(role === 'resp') {
-                    linkGoRegister.style.display = 'none';
-                    loginIdentificador.placeholder = "CPF";
-                } else if(role === 'admin') {
-                    linkGoRegister.style.display = 'none';
-                    loginIdentificador.placeholder = "SIAPE";
-                }
+                setRole(button.getAttribute('data-role'));
+                loginIdentificador.value = ""; 
             });
         });
 
+        const ultimoTipo = "<?php echo $ultimo_tipo_login; ?>";
+        setRole(ultimoTipo);
+
+        <?php if($erro_campo === 'cadastro'): ?>
+            switchView(viewRegister);
+        <?php endif; ?>
+
+        // MÁSCARA DE CPF
         const cpfInput = document.getElementById('cpf-input');
         if(cpfInput) {
             cpfInput.addEventListener('input', function(e) {
