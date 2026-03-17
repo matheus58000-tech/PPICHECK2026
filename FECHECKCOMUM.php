@@ -58,8 +58,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
     }
 }
 
-// BUSCA OS DADOS DO USUÁRIO PARA EXIBIR NA TELA
-$stmt = $conn->prepare("SELECT nome, cpf, matricula, email FROM usuarios WHERE id = ?");
+// BUSCA OS DADOS DO USUÁRIO PARA EXIBIR NA TELA (Adicionado o 'status' aqui)
+$stmt = $conn->prepare("SELECT nome, cpf, matricula, email, status FROM usuarios WHERE id = ?");
 $stmt->bind_param("i", $id_usuario);
 $stmt->execute();
 $resultado = $stmt->get_result();
@@ -69,6 +69,7 @@ $nome_exibicao = htmlspecialchars($dados_usuario['nome']);
 $cpf_exibicao = htmlspecialchars($dados_usuario['cpf']);
 $matricula_exibicao = htmlspecialchars($dados_usuario['matricula']);
 $email_exibicao = htmlspecialchars($dados_usuario['email']);
+$status_exibicao = $dados_usuario['status']; // Variável que diz se é ativo ou bloqueado
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -478,6 +479,12 @@ $email_exibicao = htmlspecialchars($dados_usuario['email']);
                 <form id="account-form" method="POST" action="FECHECKCOMUM.php">
                     <input type="hidden" name="atualizar_conta" value="1">
                     
+                    <?php if ($status_exibicao === 'bloqueado'): ?>
+                        <div style="background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-bottom: 20px; font-weight: bold; text-align: center; border: 1px solid #f5c6cb;">
+                            <i class="bi bi-slash-circle"></i> ATENÇÃO: Sua conta está atualmente bloqueada pelo Administrador. Você não poderá realizar novos pedidos.
+                        </div>
+                    <?php endif; ?>
+                    
                     <?php echo $mensagem_conta; ?>
 
                     <div class="input-group">
@@ -540,7 +547,12 @@ $email_exibicao = htmlspecialchars($dados_usuario['email']);
                             <label>Quantidade:</label>
                             <input type="number" id="modal-qty" value="1" min="1">
                         </div>
-                        <button class="btn-submit" onclick="alert('Adicionado ao Carrinho!'); closeModal('productModal');"><i class="bi bi-cart-plus"></i> Adicionar</button>
+                        
+                        <?php if ($status_exibicao === 'bloqueado'): ?>
+                            <button class="btn-submit" style="background-color: #ccc; cursor: not-allowed;" onclick="alert('Sua conta está bloqueada.')"><i class="bi bi-slash-circle"></i> Bloqueado</button>
+                        <?php else: ?>
+                            <button class="btn-submit" onclick="alert('Adicionado ao Carrinho!'); closeModal('productModal');"><i class="bi bi-cart-plus"></i> Adicionar</button>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -643,7 +655,15 @@ $email_exibicao = htmlspecialchars($dados_usuario['email']);
             if (val < 1) val = 1;
             input.value = val;
         }
-        function openCheckoutModal() { document.getElementById('checkoutModal').style.display = 'flex'; }
+        function openCheckoutModal() { 
+            // Verifica no JS se está bloqueado antes de abrir o checkout (opcional, só por segurança)
+            <?php if ($status_exibicao === 'bloqueado'): ?>
+                alert('Sua conta está bloqueada pelo Administrador. Você não pode finalizar pedidos.');
+            <?php else: ?>
+                document.getElementById('checkoutModal').style.display = 'flex'; 
+            <?php endif; ?>
+        }
+        
         function confirmOrder() {
             if (!document.querySelector('#retiradaOptions .selected') || !document.querySelector('#devolucaoOptions .selected')) {
                 alert("Selecione os prazos."); return;
