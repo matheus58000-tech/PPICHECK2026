@@ -3,11 +3,13 @@ session_start();
 require_once 'conexao.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $identificador = trim($_POST['usuario']); // Pode ser matricula, cpf ou siape
+    $identificador = trim($_POST['usuario']);
     $senha = $_POST['senha'];
-    $tipo = $_POST['tipo_login']; // Vem do campo hidden no HTML
+    $tipo = $_POST['tipo_login']; 
 
-    // Define em qual coluna do banco o sistema vai procurar o usuário e pra onde ele vai após logar
+    // Salva a aba que o usuário estava para não resetar a tela quando der erro
+    $_SESSION['ultimo_tipo_login'] = $tipo;
+
     $coluna_busca = "";
     $pagina_destino = "";
 
@@ -24,8 +26,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         die("Tipo de usuário inválido.");
     }
 
-    // Busca o usuário no banco
-    $stmt = $conn->prepare("SELECT id, nome, senha, tipo_usuario FROM usuarios WHERE $coluna_busca = ? AND tipo_usuario = ?");
+    $stmt = $conn->prepare("SELECT id, nome, senha, tipo_usuario, status FROM usuarios WHERE $coluna_busca = ? AND tipo_usuario = ?");
     $stmt->bind_param("ss", $identificador, $tipo);
     $stmt->execute();
     $resultado = $stmt->get_result();
@@ -33,22 +34,37 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($resultado->num_rows > 0) {
         $usuario = $resultado->fetch_assoc();
         
-        // Verifica se a senha digitada bate com a senha criptografada do banco
+        // Bloqueia o acesso se o usuário estiver com status bloqueado
+        if (isset($usuario['status']) && $usuario['status'] === 'bloqueado') {
+            $_SESSION['erro_campo'] = "usuario";
+            $_SESSION['erro_msg'] = "Sua conta foi bloqueada pelo administrador.";
+            header("Location: index.php");
+            exit();
+        }
+        
         if (password_verify($senha, $usuario['senha'])) {
-            
-            // Login feito com sucesso! Salva os dados na Sessão
             $_SESSION['usuario_id'] = $usuario['id'];
             $_SESSION['usuario_nome'] = $usuario['nome'];
             $_SESSION['usuario_tipo'] = $usuario['tipo_usuario'];
             
-            // Redireciona para o painel correto
+            // Limpa as variáveis de erro se o login der certo
+            unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['ultimo_tipo_login']);
+            
             header("Location: " . $pagina_destino);
             exit();
         } else {
-            echo "<script>alert('Senha incorreta!'); window.history.back();</script>";
+            // ERRO DE SENHA
+            $_SESSION['erro_campo'] = "senha";
+            $_SESSION['erro_msg'] = "Senha incorreta!";
+            header("Location: index.php");
+            exit();
         }
     } else {
-        echo "<script>alert('Usuário não encontrado neste nível de acesso!'); window.history.back();</script>";
+        // ERRO DE USUÁRIO (Matrícula, CPF ou SIAPE errados)
+        $_SESSION['erro_campo'] = "usuario";
+        $_SESSION['erro_msg'] = "Usuário não encontrado neste nível de acesso.";
+        header("Location: index.php");
+        exit();
     }
 
     $stmt->close();
