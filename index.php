@@ -1,14 +1,18 @@
 <?php
 session_start();
 
-// Captura os erros ou sucessos da sessão
+// Captura os erros do Login/Recuperar
 $erro_campo = isset($_SESSION['erro_campo']) ? $_SESSION['erro_campo'] : '';
 $erro_msg = isset($_SESSION['erro_msg']) ? $_SESSION['erro_msg'] : '';
+
+// Captura a LISTA de erros do Cadastro
+$erros_cadastro = isset($_SESSION['erros_cadastro']) ? $_SESSION['erros_cadastro'] : [];
+
 $msg_sucesso = isset($_SESSION['msg_sucesso']) ? $_SESSION['msg_sucesso'] : '';
 $ultimo_tipo_login = isset($_SESSION['ultimo_tipo_login']) ? $_SESSION['ultimo_tipo_login'] : 'padrao';
 
-// Limpa a memória para não mostrar o erro de novo se a pessoa apertar F5
-unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso']);
+// Limpa a memória
+unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], $_SESSION['erros_cadastro']);
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -78,34 +82,53 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso']);
                     <h2 class="form-title" style="margin-bottom: 0;">CADASTRO</h2>
                     <h3 class="form-subtitle">USUÁRIO PADRÃO</h3>
 
-                    <?php if($erro_campo === 'cadastro'): ?>
-                        <div class="error-text-cadastro"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erro_msg; ?></div>
+                    <?php if(isset($erros_cadastro['geral'])): ?>
+                        <div class="error-text-cadastro"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['geral']; ?></div>
                     <?php endif; ?>
 
-                    <form action="cadastrar.php" method="POST">
+                    <form action="cadastrar.php" method="POST" novalidate>
+                        
                         <div class="input-group">
-                            <input type="text" name="nome" placeholder="Nome Completo" required>
+                            <input type="text" name="nome" placeholder="Nome Completo" required class="<?php echo isset($erros_cadastro['cad_nome']) ? 'input-error' : ''; ?>">
+                            <?php if(isset($erros_cadastro['cad_nome'])): ?>
+                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['cad_nome']; ?></div>
+                            <?php endif; ?>
                         </div>
                         
                         <div class="input-row">
                             <div class="input-group">
-                                <input type="text" id="cpf-input" name="cpf" placeholder="CPF" maxlength="14" required>
+                                <input type="text" id="cpf-input" name="cpf" placeholder="CPF" maxlength="14" required class="<?php echo isset($erros_cadastro['cad_cpf']) ? 'input-error' : ''; ?>">
+                                <?php if(isset($erros_cadastro['cad_cpf'])): ?>
+                                    <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['cad_cpf']; ?></div>
+                                <?php endif; ?>
                             </div>
                             <div class="input-group">
-                                <input type="text" name="matricula" placeholder="Matrícula" required>
+                                <input type="text" name="matricula" placeholder="Matrícula" required class="<?php echo isset($erros_cadastro['cad_matricula']) ? 'input-error' : ''; ?>">
+                                <?php if(isset($erros_cadastro['cad_matricula'])): ?>
+                                    <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['cad_matricula']; ?></div>
+                                <?php endif; ?>
                             </div>
                         </div>
 
                         <div class="input-group">
-                            <input type="email" name="email" placeholder="E-mail" required>
+                            <input type="email" name="email" placeholder="E-mail" required class="<?php echo isset($erros_cadastro['cad_email']) ? 'input-error' : ''; ?>">
+                            <?php if(isset($erros_cadastro['cad_email'])): ?>
+                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['cad_email']; ?></div>
+                            <?php endif; ?>
                         </div>
 
                         <div class="input-row">
                             <div class="input-group">
-                                <input type="date" name="data_nascimento" title="Data de Nascimento" required>
+                                <input type="date" name="data_nascimento" title="Data de Nascimento" required class="<?php echo isset($erros_cadastro['cad_nascimento']) ? 'input-error' : ''; ?>">
+                                <?php if(isset($erros_cadastro['cad_nascimento'])): ?>
+                                    <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['cad_nascimento']; ?></div>
+                                <?php endif; ?>
                             </div>
                             <div class="input-group">
-                                <input type="password" name="senha" placeholder="Senha" required>
+                                <input type="password" name="senha" placeholder="Senha (Mín. 8 caracteres)" required class="<?php echo isset($erros_cadastro['cad_senha']) ? 'input-error' : ''; ?>">
+                                <?php if(isset($erros_cadastro['cad_senha'])): ?>
+                                    <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['cad_senha']; ?></div>
+                                <?php endif; ?>
                             </div>
                         </div>
 
@@ -123,7 +146,10 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso']);
 
                     <form action="recuperar.php" method="POST">
                         <div class="input-group">
-                            <input type="email" name="email_recuperacao" placeholder="E-mail cadastrado" required>
+                            <input type="email" name="email_recuperacao" placeholder="E-mail cadastrado" required class="<?php echo ($erro_campo === 'recuperacao') ? 'input-error' : ''; ?>">
+                            <?php if($erro_campo === 'recuperacao'): ?>
+                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erro_msg; ?></div>
+                            <?php endif; ?>
                         </div>
                         <button type="submit" class="btn-primary">ENVIAR INSTRUÇÕES</button>
                     </form>
@@ -195,8 +221,11 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso']);
         const ultimoTipo = "<?php echo $ultimo_tipo_login; ?>";
         setRole(ultimoTipo);
 
-        <?php if($erro_campo === 'cadastro'): ?>
+        // LÓGICA DE MANTER A TELA ABERTA SE DER ERRO
+        <?php if(!empty($erros_cadastro)): ?>
             switchView(viewRegister);
+        <?php elseif($erro_campo === 'recuperacao'): ?>
+            switchView(viewRecover);
         <?php endif; ?>
 
         // MÁSCARA DE CPF
