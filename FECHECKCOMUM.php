@@ -70,6 +70,13 @@ if (isset($_SESSION['aba_ativa'])) {
     unset($_SESSION['aba_ativa']);
 }
 
+// Verifica status do usuário para bloquear o botão de carrinho se precisar
+$stmt_status = $conn->prepare("SELECT status FROM usuarios WHERE id = ?");
+$stmt_status->bind_param("i", $id_usuario);
+$stmt_status->execute();
+$res_status = $stmt_status->get_result()->fetch_assoc();
+$status_exibicao = $res_status['status'] ?? 'ativo';
+
 // Exporta variáveis globais para as abas incluídas
 global $aba_ativa, $conn, $id_usuario;
 ?>
@@ -87,7 +94,6 @@ global $aba_ativa, $conn, $id_usuario;
     
     <link rel="stylesheet" href="FECHECKCOMUMCSS.css?v=<?php echo time(); ?>"> 
     
-    <!-- INJETA O TOAST AQUI -->
     <?php echo $mensagem_toast; ?>
 </head>
 <body>
@@ -168,7 +174,7 @@ global $aba_ativa, $conn, $id_usuario;
                 <div class="item-card" onclick="openProductModal(this)" data-name="Placa Arduino Uno R3" data-img="ARDUINO.webp" data-qty="0" data-cat="Microcontroladores" data-desc="Placa microcontroladora baseada no ATmega328P. Possui 14 pinos de entrada/saída digital.">
                     <div class="item-image-container"><img src="ARDUINO.webp" alt="Foto do Item 4"></div>
                     <div class="item-info">
-                        <strong class="item-name">Arduino</strong>
+                        <strong class="item-name">Arduino Uno R3</strong>
                         <span class="item-quantity">Quantidade disponível: 0</span>
                     </div>
                     <div class="add-to-cart-btn out-of-stock"><i class="bi bi-x-lg"></i> Indisponível</div>
@@ -177,7 +183,7 @@ global $aba_ativa, $conn, $id_usuario;
                 <div class="item-card" onclick="openProductModal(this)" data-name="Fio Jumper Vermelho" data-img="FIOVERMELHO.webp" data-qty="8" data-cat="Cabos e Conectores" data-desc="Fio flexível vermelho para conexões em protoboard. Bitola ideal para eletrônica de baixa potência.">
                     <div class="item-image-container"><img src="FIOVERMELHO.webp" alt="Foto do Item 5"></div>
                     <div class="item-info">
-                        <strong class="item-name">Fio Vermelho</strong>
+                        <strong class="item-name">Fio Jumper Vermelho</strong>
                         <span class="item-quantity">Quantidade disponível: 8</span>
                     </div>
                     <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
@@ -231,26 +237,33 @@ global $aba_ativa, $conn, $id_usuario;
             </div>
         </div>
 
-        <!-- Módulos incluídos do Painel do Aluno -->
         <?php include 'CARRINHOCHECKCOMUM.php'; ?>
         <?php include 'PEDIDOSCHECKCOMUM.php'; ?>
         <?php include 'CONTACHECKCOMUM.php'; ?>
 
     </main>
 
-    <!-- Modais -->
     <div id="productModal" class="modal-overlay">
         <div class="modal-content large">
-            <div class="modal-header-nav" onclick="closeModal('productModal')"><i class="bi bi-arrow-left"></i> Voltar</div>
+            <div class="modal-header-nav" onclick="closeModal('productModal')">
+                <i class="bi bi-arrow-left"></i> Voltar ao Catálogo
+            </div>
+            
             <div class="modal-body-grid">
-                <div class="modal-img-col"><img id="modal-img" src="" alt="Detalhe"></div>
+                <div class="modal-img-col">
+                    <img id="modal-img" src="" alt="Detalhe">
+                </div>
+                
                 <div class="modal-info-col">
                     <h2 id="modal-title">Nome</h2>
-                    <p><strong>Categoria:</strong> <span id="modal-cat">Geral</span></p>
-                    <p><strong>Disponibilidade:</strong> <span id="modal-stock" class="text-green">0</span></p>
-                    <hr class="divider">
-                    <h3>Descrição</h3>
-                    <p id="modal-desc">...</p>
+                    <p class="modal-meta"><strong>Categoria:</strong> <span id="modal-cat">Geral</span></p>
+                    <p class="modal-meta"><strong>Disponibilidade:</strong> <span id="modal-stock" class="text-green">0 unidades em estoque</span></p>
+                    
+                    <hr class="modal-divider">
+                    
+                    <h3 class="modal-subtitle">Descrição do Item</h3>
+                    <p id="modal-desc" class="modal-description">...</p>
+                    
                     <div class="modal-actions-row">
                         <div class="qty-group">
                             <label>Quantidade:</label>
@@ -258,9 +271,13 @@ global $aba_ativa, $conn, $id_usuario;
                         </div>
                         
                         <?php if (isset($status_exibicao) && $status_exibicao === 'bloqueado'): ?>
-                            <button class="btn-submit" style="background-color: #ccc; cursor: not-allowed;" onclick="showToast('Sua conta está bloqueada pelo Administrador.', 'error')"><i class="bi bi-slash-circle"></i> Bloqueado</button>
+                            <button class="btn-submit disabled" onclick="showToast('Sua conta está bloqueada pelo Administrador.', 'error')">
+                                <i class="bi bi-slash-circle"></i> Bloqueado
+                            </button>
                         <?php else: ?>
-                            <button class="btn-submit" onclick="showToast('Adicionado ao Carrinho!', 'success'); closeModal('productModal');"><i class="bi bi-cart-plus"></i> Adicionar</button>
+                            <button id="modal-btn-adicionar" class="btn-submit" onclick="showToast('Adicionado ao Carrinho!', 'success'); closeModal('productModal');">
+                                <i class="bi bi-cart-plus"></i> Adicionar ao Carrinho
+                            </button>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -271,23 +288,23 @@ global $aba_ativa, $conn, $id_usuario;
     <div id="checkoutModal" class="modal-overlay">
         <div class="modal-content">
             <h3><i class="bi bi-calendar-check"></i> Agendamento</h3>
-            <div class="modal-section">
-                <label class="modal-label">Agendar retirada para:</label>
+            <div class="modal-section" style="margin-top: 20px;">
+                <label class="modal-label" style="display:block; text-align:left; font-weight:bold; margin-bottom:10px;">Agendar retirada para:</label>
                 <div class="days-options" id="retiradaOptions">
                     <button class="day-btn" onclick="selectOption('retirada', this)">7 Dias</button>
                     <button class="day-btn" onclick="selectOption('retirada', this)">15 Dias</button>
                     <button class="day-btn" onclick="selectOption('retirada', this)">30 Dias</button>
                 </div>
             </div>
-            <div class="modal-section">
-                <label class="modal-label">Prazo de devolução desejado:</label>
+            <div class="modal-section" style="margin-top: 20px;">
+                <label class="modal-label" style="display:block; text-align:left; font-weight:bold; margin-bottom:10px;">Prazo de devolução desejado:</label>
                 <div class="days-options" id="devolucaoOptions">
                     <button class="day-btn" onclick="selectOption('devolucao', this)">7 Dias</button>
                     <button class="day-btn" onclick="selectOption('devolucao', this)">15 Dias</button>
                     <button class="day-btn" onclick="selectOption('devolucao', this)">30 Dias</button>
                 </div>
             </div>
-            <div class="modal-actions">
+            <div class="modal-actions" style="margin-top: 30px;">
                 <button class="btn-cancel" onclick="closeModal('checkoutModal')">Cancelar</button>
                 <button class="btn-submit" onclick="confirmOrder()">Confirmar Pedido</button>
             </div>
@@ -309,7 +326,6 @@ global $aba_ativa, $conn, $id_usuario;
         </div>
     </div>
 
-    <!-- Container dos Toasts -->
     <div id="toast-container"></div>
 
     <script>
@@ -368,15 +384,45 @@ global $aba_ativa, $conn, $id_usuario;
             if (e.target.classList.contains('modal-overlay')) e.target.style.display = 'none';
         }
 
-        // Modal Catálogo
+        // Modal Catálogo - Dinâmico (Verifica o estoque!)
         function openProductModal(el) {
             document.getElementById('modal-img').src = el.getAttribute('data-img');
             document.getElementById('modal-title').innerText = el.getAttribute('data-name');
             document.getElementById('modal-cat').innerText = el.getAttribute('data-cat');
             document.getElementById('modal-desc').innerText = el.getAttribute('data-desc');
+            
             const qty = parseInt(el.getAttribute('data-qty'));
-            document.getElementById('modal-stock').innerText = qty + ' unidades em estoque';
-            document.getElementById('modal-stock').className = qty > 0 ? 'text-green' : 'text-red';
+            const stockEl = document.getElementById('modal-stock');
+            const qtyInput = document.getElementById('modal-qty');
+            const btnEl = document.getElementById('modal-btn-adicionar');
+
+            if (qty > 0) {
+                // TEM ESTOQUE
+                stockEl.innerText = qty + ' unidades em estoque';
+                stockEl.className = 'text-green';
+                qtyInput.value = 1;
+                qtyInput.max = qty;
+                qtyInput.disabled = false;
+                
+                if (btnEl) {
+                    btnEl.disabled = false;
+                    btnEl.className = 'btn-submit';
+                    btnEl.innerHTML = '<i class="bi bi-cart-plus"></i> Adicionar ao Carrinho';
+                }
+            } else {
+                // ESTOQUE ZERO
+                stockEl.innerText = 'Indisponível no momento';
+                stockEl.className = 'text-red';
+                qtyInput.value = 0;
+                qtyInput.disabled = true;
+                
+                if (btnEl) {
+                    btnEl.disabled = true;
+                    btnEl.className = 'btn-submit disabled';
+                    btnEl.innerHTML = 'Indisponível';
+                }
+            }
+            
             document.getElementById('productModal').style.display = 'flex';
         }
 
