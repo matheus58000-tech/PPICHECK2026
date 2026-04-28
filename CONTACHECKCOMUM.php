@@ -1,15 +1,15 @@
 <?php
 // BUSCA OS DADOS DO USUÁRIO PARA EXIBIR NA TELA
-$stmt = $conn->prepare("SELECT nome, cpf, matricula, email, status FROM usuarios WHERE id = ?");
+$stmt = $conn->prepare("SELECT Nome, CPF, Matricula, Email, status FROM Usuarios WHERE id_user = ?");
 $stmt->bind_param("i", $id_usuario);
 $stmt->execute();
 $resultado = $stmt->get_result();
 $dados_usuario = $resultado->fetch_assoc();
 
-$nome_exibicao = htmlspecialchars($dados_usuario['nome'] ?? '');
-$cpf_exibicao = htmlspecialchars($dados_usuario['cpf'] ?? '');
-$matricula_exibicao = htmlspecialchars($dados_usuario['matricula'] ?? '');
-$email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
+$nome_exibicao = htmlspecialchars($dados_usuario['Nome'] ?? '');
+$cpf_exibicao = htmlspecialchars($dados_usuario['CPF'] ?? '');
+$matricula_exibicao = htmlspecialchars($dados_usuario['Matricula'] ?? '');
+$email_exibicao = htmlspecialchars($dados_usuario['Email'] ?? '');
 $status_exibicao = $dados_usuario['status'] ?? 'ativo';
 ?>
 
