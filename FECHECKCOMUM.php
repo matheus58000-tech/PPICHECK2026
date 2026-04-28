@@ -20,7 +20,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
     $nova_senha = $_POST['nova_senha'];
     $confirma_senha = $_POST['confirma_senha'];
 
-    $stmt_check = $conn->prepare("SELECT senha FROM usuarios WHERE id = ?");
+    $stmt_check = $conn->prepare("SELECT Senha FROM Usuarios WHERE id_user = ?");
     $stmt_check->bind_param("i", $id_usuario);
     $stmt_check->execute();
     $user_db = $stmt_check->get_result()->fetch_assoc();
@@ -29,17 +29,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
         if (!empty($nova_senha)) {
             if ($nova_senha !== $confirma_senha) {
                 $_SESSION['msg_erro'] = "As novas senhas não coincidem.";
-            } else if (!password_verify($senha_atual, $user_db['senha'])) {
+            } else if (!password_verify($senha_atual, $user_db['Senha'])) {
                 $_SESSION['msg_erro'] = "A senha atual está incorreta.";
             } else {
                 $senha_hash = password_hash($nova_senha, PASSWORD_DEFAULT);
-                $stmt_upd = $conn->prepare("UPDATE usuarios SET email = ?, senha = ? WHERE id = ?");
+                $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ?, Senha = ? WHERE id_user = ?");
                 $stmt_upd->bind_param("ssi", $novo_email, $senha_hash, $id_usuario);
                 $stmt_upd->execute();
                 $_SESSION['msg_sucesso'] = "Dados e senha atualizados com sucesso!";
             }
         } else {
-            $stmt_upd = $conn->prepare("UPDATE usuarios SET email = ? WHERE id = ?");
+            $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ? WHERE id_user = ?");
             $stmt_upd->bind_param("si", $novo_email, $id_usuario);
             $stmt_upd->execute();
             $_SESSION['msg_sucesso'] = "Email atualizado com sucesso!";
@@ -71,7 +71,7 @@ if (isset($_SESSION['aba_ativa'])) {
 }
 
 // Verifica status do usuário para bloquear o botão de carrinho se precisar
-$stmt_status = $conn->prepare("SELECT status FROM usuarios WHERE id = ?");
+$stmt_status = $conn->prepare("SELECT status FROM Usuarios WHERE id_user = ?");
 $stmt_status->bind_param("i", $id_usuario);
 $stmt_status->execute();
 $res_status = $stmt_status->get_result()->fetch_assoc();
@@ -384,7 +384,7 @@ global $aba_ativa, $conn, $id_usuario;
             if (e.target.classList.contains('modal-overlay')) e.target.style.display = 'none';
         }
 
-        // Modal Catálogo - Dinâmico (Verifica o estoque!)
+        // Modal Catálogo - Dinâmico (Verifica o estoque)
         function openProductModal(el) {
             document.getElementById('modal-img').src = el.getAttribute('data-img');
             document.getElementById('modal-title').innerText = el.getAttribute('data-name');
@@ -397,7 +397,6 @@ global $aba_ativa, $conn, $id_usuario;
             const btnEl = document.getElementById('modal-btn-adicionar');
 
             if (qty > 0) {
-                // TEM ESTOQUE
                 stockEl.innerText = qty + ' unidades em estoque';
                 stockEl.className = 'text-green';
                 qtyInput.value = 1;
@@ -410,7 +409,6 @@ global $aba_ativa, $conn, $id_usuario;
                     btnEl.innerHTML = '<i class="bi bi-cart-plus"></i> Adicionar ao Carrinho';
                 }
             } else {
-                // ESTOQUE ZERO
                 stockEl.innerText = 'Indisponível no momento';
                 stockEl.className = 'text-red';
                 qtyInput.value = 0;
