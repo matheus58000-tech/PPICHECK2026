@@ -4,16 +4,17 @@ require_once 'conexao.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $identificador = trim($_POST['usuario']);
-    $senha = $_POST['Senha'];
+    $senha = $_POST['senha'];
     $tipo = $_POST['tipo_login']; 
 
+    // Salva a aba que o usuário estava para não resetar a tela quando der erro
     $_SESSION['ultimo_tipo_login'] = $tipo;
 
     $coluna_busca = "";
     $pagina_destino = "";
 
     if ($tipo === 'padrao') {
-        $coluna_busca = "Matrícula";
+        $coluna_busca = "Matricula";
         $pagina_destino = "FECHECKCOMUM.php";
     } elseif ($tipo === 'resp') {
         $coluna_busca = "CPF";
@@ -25,7 +26,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         die("Tipo de usuário inválido.");
     }
 
-    $stmt = $conn->prepare("SELECT id, nome, Senha, tipo_usuario, status FROM usuarios WHERE $coluna_busca = ? AND tipo_usuario = ?");
+    $stmt = $conn->prepare("SELECT id_user, Nome, Senha, Tipo_user, status FROM Usuarios WHERE $coluna_busca = ? AND Tipo_user = ?");
     $stmt->bind_param("ss", $identificador, $tipo);
     $stmt->execute();
     $resultado = $stmt->get_result();
@@ -33,6 +34,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($resultado->num_rows > 0) {
         $usuario = $resultado->fetch_assoc();
         
+        // Bloqueia o acesso se o usuário estiver com status bloqueado
         if (isset($usuario['status']) && $usuario['status'] === 'bloqueado') {
             $_SESSION['erro_campo'] = "usuario";
             $_SESSION['erro_msg'] = "Sua conta foi bloqueada pelo administrador.";
@@ -41,16 +43,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
         
         if (password_verify($senha, $usuario['Senha'])) {
-            $_SESSION['usuario_id'] = $usuario['id'];
-            $_SESSION['usuario_nome'] = $usuario['nome'];
-            $_SESSION['usuario_tipo'] = $usuario['tipo_usuario'];
+            $_SESSION['usuario_id'] = $usuario['id_user'];
+            $_SESSION['usuario_nome'] = $usuario['Nome'];
+            $_SESSION['usuario_tipo'] = $usuario['Tipo_user'];
             
+            // Limpa as variáveis de erro se o login der certo
             unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['ultimo_tipo_login']);
             
             header("Location: " . $pagina_destino);
             exit();
         } else {
-            $_SESSION['erro_campo'] = "Senha";
+            // ERRO DE SENHA
+            $_SESSION['erro_campo'] = "senha";
             $_SESSION['erro_msg'] = "Senha incorreta!";
             header("Location: index.php");
             exit();
