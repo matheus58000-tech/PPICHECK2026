@@ -1,30 +1,7 @@
 <?php
-// Função para gerar um código aleatório (Só declara se ainda não existir)
-if (!function_exists('gerarCodigoUnico')) {
-    function gerarCodigoUnico($conn) {
-        $codigo = '';
-        $existe = true;
-        while ($existe) {
-            $caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-            $aleatorio = substr(str_shuffle($caracteres), 0, 5);
-            $codigo = 'CHK-' . $aleatorio;
-            
-            $stmt = $conn->prepare("SELECT id FROM usuarios WHERE codigo_usuario = ?");
-            $stmt->bind_param("s", $codigo);
-            $stmt->execute();
-            $stmt->store_result();
-            if ($stmt->num_rows == 0) {
-                $existe = false;
-            }
-            $stmt->close();
-        }
-        return $codigo;
-    }
-}
-
 $mensagem_lab = "";
+$erros_lab = [];
 
-// PROCESSAMENTO: GERENCIAMENTO DE USUÁRIOS E LABORATÓRIO
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
     global $aba_ativa, $sub_aba_ativa;
     $aba_ativa = "view-lab"; 
@@ -34,16 +11,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
     $id_alvo = isset($_POST['id_alvo']) ? intval($_POST['id_alvo']) : 0;
 
     if ($id_alvo === $id_usuario && ($acao === 'excluir' || $acao === 'bloquear')) {
-        $mensagem_lab = "<script>window.onload = function() { showToast('Você não pode bloquear ou excluir a própria conta!', 'warning'); }</script>";
+        $mensagem_lab = "<script>window.addEventListener('DOMContentLoaded', () => showToast('Você não pode bloquear ou excluir a própria conta!', 'warning'));</script>";
     } else {
         try {
             if ($acao === 'bloquear') {
-                $conn->query("UPDATE usuarios SET status = IF(status='ativo', 'bloqueado', 'ativo') WHERE id = $id_alvo");
-                $mensagem_lab = "<script>window.onload = function() { showToast('Status do usuário alterado com sucesso!', 'success'); }</script>";
+                $conn->query("UPDATE Usuarios SET status = IF(status='ativo', 'bloqueado', 'ativo') WHERE id_user = $id_alvo");
+                $mensagem_lab = "<script>window.addEventListener('DOMContentLoaded', () => showToast('Status do usuário alterado com sucesso!', 'success'));</script>";
             
             } elseif ($acao === 'excluir') {
-                $conn->query("DELETE FROM usuarios WHERE id = $id_alvo");
-                $mensagem_lab = "<script>window.onload = function() { showToast('Usuário excluído permanentemente!', 'success'); }</script>";
+                $conn->query("DELETE FROM Usuarios WHERE id_user = $id_alvo");
+                $mensagem_lab = "<script>window.addEventListener('DOMContentLoaded', () => showToast('Usuário excluído permanentemente!', 'success'));</script>";
             
             } elseif ($acao === 'editar') {
                 $nome = $_POST['edit_nome'];
@@ -56,45 +33,69 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
 
                 if (!empty($nova_senha)) {
                     $hash = password_hash($nova_senha, PASSWORD_DEFAULT);
-                    $stmt_edit = $conn->prepare("UPDATE usuarios SET nome=?, email=?, cpf=?, matricula=?, siape=?, tipo_usuario=?, senha=? WHERE id=?");
+                    $stmt_edit = $conn->prepare("UPDATE Usuarios SET Nome=?, Email=?, CPF=?, Matricula=?, SIAPE=?, Tipo_user=?, Senha=? WHERE id_user=?");
                     $stmt_edit->bind_param("sssssssi", $nome, $email, $cpf, $matricula, $siape, $tipo, $hash, $id_alvo);
                 } else {
-                    $stmt_edit = $conn->prepare("UPDATE usuarios SET nome=?, email=?, cpf=?, matricula=?, siape=?, tipo_usuario=? WHERE id=?");
+                    $stmt_edit = $conn->prepare("UPDATE Usuarios SET Nome=?, Email=?, CPF=?, Matricula=?, SIAPE=?, Tipo_user=? WHERE id_user=?");
                     $stmt_edit->bind_param("ssssssi", $nome, $email, $cpf, $matricula, $siape, $tipo, $id_alvo);
                 }
                 
                 $stmt_edit->execute();
-                $mensagem_lab = "<script>window.onload = function() { showToast('Dados do usuário atualizados com sucesso!', 'success'); }</script>";
+                $mensagem_lab = "<script>window.addEventListener('DOMContentLoaded', () => showToast('Dados do usuário atualizados com sucesso!', 'success'));</script>";
             
             } elseif ($acao === 'adicionar') {
-                $tipo = $_POST['add_tipo'];
-                $cpf = $_POST['add_cpf'];
-                $nome = $_POST['add_nome'];
-                $email = $_POST['add_email'];
+                $tipo = trim($_POST['add_tipo']);
+                $cpf = trim($_POST['add_cpf']);
+                $nome = trim($_POST['add_nome']);
+                $email = trim($_POST['add_email']);
                 $nascimento = $_POST['add_nascimento'];
                 $senha = $_POST['add_senha'];
                 $confirma = $_POST['add_confirma'];
                 
-                $dinamico = isset($_POST['add_dinamico']) ? $_POST['add_dinamico'] : null;
+                $dinamico = isset($_POST['add_dinamico']) ? trim($_POST['add_dinamico']) : null;
                 $matricula = ($tipo === 'padrao') ? $dinamico : null;
-                $siape = ($tipo === 'admin') ? $dinamico : null;
+                $siape = ($tipo === 'admin' || $tipo === 'resp') ? $dinamico : null;
 
-                if ($senha !== $confirma) {
-                    $mensagem_lab = "<script>window.onload = function() { showToast('As senhas não coincidem!', 'error'); }</script>";
+                if (empty($nome) || strlen($nome) < 3) $erros_lab['add_nome'] = "Mín. 3 letras.";
+                
+                $cpf_limpo = preg_replace('/[^0-9]/', '', $cpf); 
+                if (empty($cpf_limpo) || strlen($cpf_limpo) !== 11) $erros_lab['add_cpf'] = "Exatos 11 dígitos.";
+                
+                if (empty($tipo)) {
+                    $erros_lab['add_tipo'] = "Selecione o nível de acesso.";
+                } elseif ($tipo === 'padrao') {
+                    if (empty($matricula) || strlen($matricula) !== 10 || !is_numeric($matricula)) {
+                        $erros_lab['add_dinamico'] = "Exatos 10 números.";
+                    }
+                } elseif ($tipo === 'admin' || $tipo === 'resp') {
+                    if (empty($siape) || strlen($siape) !== 7 || !is_numeric($siape)) {
+                        $erros_lab['add_dinamico'] = "Exatos 7 números.";
+                    }
+                }
+                
+                if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) $erros_lab['add_email'] = "E-mail inválido.";
+                
+                $data_atual = date("Y-m-d");
+                if (empty($nascimento) || $nascimento > $data_atual) $erros_lab['add_nascimento'] = "Data inválida.";
+                
+                if (empty($senha) || strlen($senha) < 8) $erros_lab['add_senha'] = "Mín. 8 caracteres.";
+                if ($senha !== $confirma) $erros_lab['add_confirma'] = "Senhas não coincidem.";
+
+                // Se houver QUALQUER erro, impede de salvar no banco e reabre a aba
+                if (count($erros_lab) > 0) {
+                    $erros_lab['geral'] = "Preencha todos os campos corretamente e tente novamente.";
                     $sub_aba_ativa = "tab-novo-usuario"; 
                 } else {
-                    $codigo_usuario = gerarCodigoUnico($conn); 
-                    
                     $hash = password_hash($senha, PASSWORD_DEFAULT);
-                    $stmt_add = $conn->prepare("INSERT INTO usuarios (nome, cpf, matricula, siape, email, data_nascimento, senha, tipo_usuario, codigo_usuario) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt_add->bind_param("sssssssss", $nome, $cpf, $matricula, $siape, $email, $nascimento, $hash, $tipo, $codigo_usuario);
+                    $stmt_add = $conn->prepare("INSERT INTO Usuarios (Nome, CPF, Matricula, SIAPE, Email, Data_nasc, Senha, Tipo_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt_add->bind_param("ssssssss", $nome, $cpf, $matricula, $siape, $email, $nascimento, $hash, $tipo);
                     
                     $stmt_add->execute();
-                    $mensagem_lab = "<script>window.onload = function() { showToast('Usuário cadastrado com sucesso!', 'success'); }</script>";
+                    $mensagem_lab = "<script>window.addEventListener('DOMContentLoaded', () => showToast('Usuário cadastrado com sucesso!', 'success'));</script>";
                 }
             }
-        } catch (mysqli_sql_exception $e) {
-            $mensagem_lab = "<script>window.onload = function() { showToast('ERRO: CPF, Matrícula, SIAPE ou E-mail já estão em uso.', 'error'); }</script>";
+        } catch (\Exception $e) {
+            $erros_lab['geral'] = "ERRO: O CPF, Matrícula, SIAPE ou E-mail digitado já estão em uso no sistema.";
             if ($acao === 'adicionar') {
                 $sub_aba_ativa = "tab-novo-usuario";
             }
@@ -255,12 +256,12 @@ echo $mensagem_lab;
                     </thead>
                     <tbody>
                         <?php
-                        $res_usuarios = $conn->query("SELECT * FROM usuarios ORDER BY nome ASC");
+                        $res_usuarios = $conn->query("SELECT * FROM Usuarios ORDER BY Nome ASC");
                         while ($u = $res_usuarios->fetch_assoc()):
-                            $id_u = $u['id'];
-                            $nome_u = htmlspecialchars($u['nome']);
-                            $email_u = htmlspecialchars($u['email']);
-                            $tipo_u = ucfirst($u['tipo_usuario']);
+                            $id_u = $u['id_user'];
+                            $nome_u = htmlspecialchars($u['Nome']);
+                            $email_u = htmlspecialchars($u['Email']);
+                            $tipo_u = ucfirst($u['Tipo_user']);
                             $status_u = $u['status'];
                             
                             $cor_status = ($status_u === 'ativo') ? 'green' : 'red';
@@ -285,27 +286,26 @@ echo $mensagem_lab;
             <?php 
             $res_usuarios->data_seek(0); 
             while ($u = $res_usuarios->fetch_assoc()): 
-                $id_u = $u['id'];
+                $id_u = $u['id_user'];
                 $btn_bloqueio_txt = ($u['status'] === 'ativo') ? 'Bloquear' : 'Desbloquear';
                 $btn_bloqueio_icon = ($u['status'] === 'ativo') ? 'bi-slash-circle' : 'bi-check-circle';
                 
                 $dados_json = htmlspecialchars(json_encode([
-                    'id' => $u['id'], 
-                    'nome' => $u['nome'], 
-                    'email' => $u['email'], 
-                    'cpf' => $u['cpf'], 
-                    'matricula' => $u['matricula'], 
-                    'siape' => $u['siape'], 
-                    'tipo' => $u['tipo_usuario']
+                    'id' => $u['id_user'], 
+                    'nome' => $u['Nome'], 
+                    'email' => $u['Email'], 
+                    'cpf' => $u['CPF'], 
+                    'matricula' => $u['Matricula'], 
+                    'siape' => $u['SIAPE'], 
+                    'tipo' => $u['Tipo_user']
                 ]));
             ?>
                 <div class="pedidos-detail-container" id="pedidos-detail-<?php echo $id_u; ?>" style="display: none;">
-                    <h4>Detalhes - <span class="user-name-placeholder"><?php echo htmlspecialchars($u['nome']); ?></span></h4>
+                    <h4>Detalhes - <span class="user-name-placeholder"><?php echo htmlspecialchars($u['Nome']); ?></span></h4>
                     <p style="margin-bottom: 10px;">
-                       <strong>Código:</strong> <?php echo !empty($u['codigo_usuario']) ? htmlspecialchars($u['codigo_usuario']) : '-'; ?> | 
-                       <strong>CPF:</strong> <?php echo !empty($u['cpf']) ? htmlspecialchars($u['cpf']) : '-'; ?> | 
-                       <strong>Matrícula:</strong> <?php echo !empty($u['matricula']) ? htmlspecialchars($u['matricula']) : '-'; ?> | 
-                       <strong>SIAPE:</strong> <?php echo !empty($u['siape']) ? htmlspecialchars($u['siape']) : '-'; ?>
+                       <strong>CPF:</strong> <?php echo !empty($u['CPF']) ? htmlspecialchars($u['CPF']) : '-'; ?> | 
+                       <strong>Matrícula:</strong> <?php echo !empty($u['Matricula']) ? htmlspecialchars($u['Matricula']) : '-'; ?> | 
+                       <strong>SIAPE:</strong> <?php echo !empty($u['SIAPE']) ? htmlspecialchars($u['SIAPE']) : '-'; ?>
                     </p>
                     
                     <div class="user-actions-footer">
@@ -326,69 +326,85 @@ echo $mensagem_lab;
 
     <div id="tab-novo-usuario" class="spa-tab" style="display: none;">
         <div class="content-area form-container">
-            <form id="add-user-form" method="POST" action="FECHECKADM.php">
+            <form id="add-user-form" method="POST" action="FECHECKADM.php" novalidate>
                 <input type="hidden" name="acao_usuario" value="adicionar">
                 
+                <?php if(isset($erros_lab['geral'])): ?>
+                    <div style="background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; text-align: center; border: 1px solid #f5c6cb;">
+                        <i class="bi bi-exclamation-triangle-fill"></i> <?php echo $erros_lab['geral']; ?>
+                    </div>
+                <?php endif; ?>
+
                 <h3 class="form-section-title"><i class="bi bi-person-circle"></i> Informações Básicas</h3>
+                
                 <div class="form-row">
                     <div class="input-group">
                         <label>Tipo de Usuário</label>
-                        <select name="add_tipo" id="add_tipo" required onchange="mudarCampoDinamicoAddUser(this.value)">
+                        <select name="add_tipo" id="add_tipo" required onchange="mudarCampoDinamicoAddUser(this.value)" class="<?php echo isset($erros_lab['add_tipo']) ? 'input-error' : ''; ?>">
                             <option value="">Selecione...</option>
-                            <option value="padrao">Comum (Aluno)</option>
-                            <option value="resp">Responsável LEPEP</option>
-                            <option value="admin">Admin LEPEP</option>
+                            <option value="padrao" <?php echo (isset($_POST['add_tipo']) && $_POST['add_tipo'] === 'padrao') ? 'selected' : ''; ?>>Comum (Aluno)</option>
+                            <option value="resp" <?php echo (isset($_POST['add_tipo']) && $_POST['add_tipo'] === 'resp') ? 'selected' : ''; ?>>Responsável LEPEP</option>
+                            <option value="admin" <?php echo (isset($_POST['add_tipo']) && $_POST['add_tipo'] === 'admin') ? 'selected' : ''; ?>>Admin LEPEP</option>
                         </select>
+                        <?php if(isset($erros_lab['add_tipo'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['add_tipo']; ?></div><?php endif; ?>
                     </div>
+                    
                     <div class="input-group">
                         <label>CPF</label>
-                        <input type="text" name="add_cpf" id="add_cpf" placeholder="000.000.000-00" maxlength="14" required>
+                        <input type="text" name="add_cpf" id="add_cpf" placeholder="000.000.000-00" maxlength="14" required class="<?php echo isset($erros_lab['add_cpf']) ? 'input-error' : ''; ?>" value="<?php echo htmlspecialchars($_POST['add_cpf'] ?? ''); ?>">
+                        <?php if(isset($erros_lab['add_cpf'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['add_cpf']; ?></div><?php endif; ?>
                     </div>
                 </div>
                 
-                <div class="input-group full-width" id="grupo-dinamico-add-user" style="display: none;">
-                    <label id="label-dinamico-add-user">Identificação</label>
-                    <input type="text" name="add_dinamico" id="input-dinamico-add-user">
+                <div class="input-group full-width" id="grupo-dinamico-add-user" style="display: <?php echo (isset($_POST['add_tipo']) && $_POST['add_tipo'] !== '') ? 'block' : 'none'; ?>;">
+                    <label id="label-dinamico-add-user"><?php echo (isset($_POST['add_tipo']) && $_POST['add_tipo'] === 'padrao') ? 'Matrícula' : 'SIAPE'; ?></label>
+                    <input type="text" name="add_dinamico" id="input-dinamico-add-user" class="<?php echo isset($erros_lab['add_dinamico']) ? 'input-error' : ''; ?>" value="<?php echo htmlspecialchars($_POST['add_dinamico'] ?? ''); ?>">
+                    <?php if(isset($erros_lab['add_dinamico'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['add_dinamico']; ?></div><?php endif; ?>
                 </div>
                 
                 <div class="input-group full-width">
                     <label>Nome Completo</label>
-                    <input type="text" name="add_nome" required>
+                    <input type="text" name="add_nome" required class="<?php echo isset($erros_lab['add_nome']) ? 'input-error' : ''; ?>" value="<?php echo htmlspecialchars($_POST['add_nome'] ?? ''); ?>">
+                    <?php if(isset($erros_lab['add_nome'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['add_nome']; ?></div><?php endif; ?>
                 </div>
                 
                 <div class="form-row">
                     <div class="input-group">
                         <label>Data de Nascimento</label>
-                        <input type="date" name="add_nascimento" required>
+                        <input type="date" name="add_nascimento" required class="<?php echo isset($erros_lab['add_nascimento']) ? 'input-error' : ''; ?>" value="<?php echo htmlspecialchars($_POST['add_nascimento'] ?? ''); ?>">
+                        <?php if(isset($erros_lab['add_nascimento'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['add_nascimento']; ?></div><?php endif; ?>
                     </div>
                     <div class="input-group">
                         <label>E-mail</label>
-                        <input type="email" name="add_email" required>
+                        <input type="email" name="add_email" required class="<?php echo isset($erros_lab['add_email']) ? 'input-error' : ''; ?>" value="<?php echo htmlspecialchars($_POST['add_email'] ?? ''); ?>">
+                        <?php if(isset($erros_lab['add_email'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['add_email']; ?></div><?php endif; ?>
                     </div>
                 </div>
                 
                 <h3 class="form-section-title" style="margin-top: 1rem;"><i class="bi bi-lock"></i> Dados de Acesso</h3>
+                
                 <div class="form-row">
                     <div class="input-group">
                         <label>Senha</label>
-                        <input type="password" name="add_senha" required>
+                        <input type="password" name="add_senha" placeholder="Mín. 8 caracteres" required class="<?php echo isset($erros_lab['add_senha']) ? 'input-error' : ''; ?>">
+                        <?php if(isset($erros_lab['add_senha'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['add_senha']; ?></div><?php endif; ?>
                     </div>
                     <div class="input-group">
                         <label>Confirmação</label>
-                        <input type="password" name="add_confirma" required>
+                        <input type="password" name="add_confirma" required class="<?php echo isset($erros_lab['add_confirma']) ? 'input-error' : ''; ?>">
+                        <?php if(isset($erros_lab['add_confirma'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['add_confirma']; ?></div><?php endif; ?>
                     </div>
                 </div>
                 
                 <div class="form-actions">
                     <button type="submit" class="btn-primary-action"><i class="bi bi-person-plus"></i> Cadastrar Usuário</button>
-                    <button type="button" class="btn-secondary-action" onclick="switchLabTab('tab-usuarios', 'Gerenciamento de Usuários')">Cancelar</button>
+                    <button type="button" class="btn-secondary-action" onclick="window.location.href='FECHECKADM.php'">Cancelar</button>
                 </div>
             </form>
         </div>
     </div>
 </main>
 
-<!-- Modais Exclusivos do Laboratório -->
 <div id="modal-recusa" class="modal-overlay">
     <div class="modal-content">
         <h3 class="modal-heading-red"><i class="bi bi-exclamation-triangle"></i> Recusar Pedido</h3>
