@@ -10,7 +10,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
     $nova_senha = $_POST['nova_senha'];
     $confirma_senha = $_POST['confirma_senha'];
 
-    $stmt_check = $conn->prepare("SELECT senha FROM usuarios WHERE id = ?");
+    $stmt_check = $conn->prepare("SELECT Senha FROM Usuarios WHERE id_user = ?");
     $stmt_check->bind_param("i", $id_usuario);
     $stmt_check->execute();
     $resultado_check = $stmt_check->get_result();
@@ -20,17 +20,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
         if (!empty($nova_senha)) {
             if ($nova_senha !== $confirma_senha) {
                 $mensagem_conta = "<script>window.onload = function() { showToast('As novas senhas não coincidem.', 'error'); }</script>";
-            } else if (!password_verify($senha_atual, $user_db['senha'])) {
+            } else if (!password_verify($senha_atual, $user_db['Senha'])) {
                 $mensagem_conta = "<script>window.onload = function() { showToast('A senha atual está incorreta.', 'error'); }</script>";
             } else {
                 $senha_hash = password_hash($nova_senha, PASSWORD_DEFAULT);
-                $stmt_upd = $conn->prepare("UPDATE usuarios SET email = ?, senha = ? WHERE id = ?");
+                $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ?, Senha = ? WHERE id_user = ?");
                 $stmt_upd->bind_param("ssi", $novo_email, $senha_hash, $id_usuario);
                 $stmt_upd->execute();
                 $mensagem_conta = "<script>window.onload = function() { showToast('Dados e senha atualizados com sucesso!', 'success'); }</script>";
             }
         } else {
-            $stmt_upd = $conn->prepare("UPDATE usuarios SET email = ? WHERE id = ?");
+            $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ? WHERE id_user = ?");
             $stmt_upd->bind_param("si", $novo_email, $id_usuario);
             $stmt_upd->execute();
             $mensagem_conta = "<script>window.onload = function() { showToast('Email atualizado com sucesso!', 'success'); }</script>";
@@ -41,15 +41,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
 }
 
 // Busca os dados da PRÓPRIA CONTA para preencher a aba
-$stmt = $conn->prepare("SELECT nome, cpf, siape, email FROM usuarios WHERE id = ?");
+$stmt = $conn->prepare("SELECT Nome, CPF, SIAPE, Email FROM Usuarios WHERE id_user = ?");
 $stmt->bind_param("i", $id_usuario);
 $stmt->execute();
 $dados_usuario = $stmt->get_result()->fetch_assoc();
 
-$nome_exibicao = htmlspecialchars($dados_usuario['nome'] ?? '');
-$cpf_exibicao = htmlspecialchars($dados_usuario['cpf'] ?? '');
-$siape_exibicao = htmlspecialchars($dados_usuario['siape'] ?? '');
-$email_exibicao = htmlspecialchars($dados_usuario['email'] ?? '');
+$nome_exibicao = htmlspecialchars($dados_usuario['Nome'] ?? '');
+$cpf_exibicao = htmlspecialchars($dados_usuario['CPF'] ?? '');
+$siape_exibicao = htmlspecialchars($dados_usuario['SIAPE'] ?? '');
+$email_exibicao = htmlspecialchars($dados_usuario['Email'] ?? '');
 
 // Renderiza a mensagem caso tenha tido alguma alteração
 echo $mensagem_conta;
