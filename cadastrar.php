@@ -2,28 +2,6 @@
 session_start();
 require_once 'conexao.php';
 
-function gerarCodigoUnico($conn) {
-    $codigo = '';
-    $existe = true;
-    
-    while ($existe) {
-        $caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        $aleatorio = substr(str_shuffle($caracteres), 0, 5);
-        $codigo = 'CHK-' . $aleatorio;
-        
-        $stmt = $conn->prepare("SELECT id FROM usuarios WHERE codigo_usuario = ?");
-        $stmt->bind_param("s", $codigo);
-        $stmt->execute();
-        $stmt->store_result();
-        
-        if ($stmt->num_rows == 0) {
-            $existe = false; 
-        }
-        $stmt->close();
-    }
-    return $codigo;
-}
-
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $nome = trim($_POST['nome']);
     $cpf = trim($_POST['cpf']);
@@ -70,12 +48,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // --- 2. SALVAMENTO NO BANCO ---
-    $codigo_usuario = gerarCodigoUnico($conn);
     $senha_hash = password_hash($senha, PASSWORD_DEFAULT);
 
     try {
-        $stmt = $conn->prepare("INSERT INTO usuarios (nome, cpf, matricula, email, data_nascimento, senha, tipo_usuario, codigo_usuario) VALUES (?, ?, ?, ?, ?, ?, 'padrao', ?)");
-        $stmt->bind_param("sssssss", $nome, $cpf, $matricula, $email, $data_nascimento, $senha_hash, $codigo_usuario);
+        $stmt = $conn->prepare("INSERT INTO Usuarios (Nome, CPF, Matricula, Email, Data_nasc, Senha, Tipo_user) VALUES (?, ?, ?, ?, ?, ?, 'padrao')");
+        $stmt->bind_param("ssssss", $nome, $cpf, $matricula, $email, $data_nascimento, $senha_hash);
 
         $stmt->execute();
         
