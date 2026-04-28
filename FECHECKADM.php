@@ -2,9 +2,7 @@
 session_start();
 require_once 'conexao.php'; // Conecta com o banco de dados
 
-// =========================================================================
-// 1. SEGURANÇA E CONTROLE DE ACESSO
-// =========================================================================
+// Segurança
 if (!isset($_SESSION['usuario_id']) || ($_SESSION['usuario_tipo'] !== 'admin' && $_SESSION['usuario_tipo'] !== 'resp')) {
     header("Location: index.php");
     exit();
@@ -14,7 +12,6 @@ $id_usuario = $_SESSION['usuario_id'];
 $aba_ativa = "view-catalogo"; 
 $sub_aba_ativa = "";
 
-// Apenas declarando globais, os arquivos abaixo farão o resto
 global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
 ?>
 <!DOCTYPE html>
@@ -29,7 +26,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
     <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
-    <link rel="stylesheet" href="FECHECKADMCSS.css"> 
+    <link rel="stylesheet" href="FECHECKADMCSS.css?v=<?php echo time(); ?>"> 
 </head>
 <body>
 
@@ -185,13 +182,11 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         </div> 
     </main>
 
-    <!-- A MÁGICA DA ARQUITETURA MODERNA ACONTECE AQUI! -->
     <?php include 'CARRINHOCHECKADM.php'; ?>
     <?php include 'PEDIDOSCHECKADM.php'; ?>
     <?php include 'CONTACHECKADM.php'; ?>
     <?php include 'LABCHECKADM.php'; ?>
 
-    <!-- Modais Globais -->
     <div id="product-modal" class="modal-overlay">
         <div class="modal-card-detail">
             <div class="modal-header-nav" onclick="closeProductModal()"><i class="bi bi-arrow-left"></i> Voltar ao Catálogo</div>
@@ -309,7 +304,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                 label.innerText = 'Matrícula';
                 input.required = true;
                 input.placeholder = 'Digite a Matrícula';
-            } else if (tipo === 'admin') {
+            } else if (tipo === 'admin' || tipo === 'resp') {
                 grupo.style.display = 'block';
                 label.innerText = 'SIAPE';
                 input.required = true;
