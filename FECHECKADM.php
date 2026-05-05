@@ -53,6 +53,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                     <a href="#" onclick="navigateToLab('tab-pedidos-lab', 'Gerenciamento de Pedidos')"><i class="bi bi-archive"></i> Pedidos</a>
                     <a href="#" onclick="navigateToLab('tab-usuarios', 'Gerenciamento de Usuários')"><i class="bi bi-people"></i> Usuários</a>
                     <a href="#" onclick="navigateToLab('tab-estoque', 'Gerenciamento de Estoque')"><i class="bi bi-box-seam"></i> Estoque</a>
+                    <a href="#" onclick="navigateToLab('tab-categorias', 'Gerenciamento de Categorias')"><i class="bi bi-tags"></i> Categorias</a>
                 </div>
             </div>
             
