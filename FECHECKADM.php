@@ -90,97 +90,62 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         <h2>Catálogo de Itens</h2>
         <div class="item-grid">
 
-            <div class="item-card" onclick="openProductModal(this)" data-name="LED Amarelo de Alta Luminosidade" data-img="LEDAMARELO.jpg" data-qty="10" data-cat="Componentes Ópticos" data-desc="LED (Diodo Emissor de Luz) na cor amarela. Ideal para projetos de prototipagem e sinalização. Possui baixo consumo de energia.">
-                <div class="item-image-container"><img src="LEDAMARELO.jpg" alt="Led Amarelo"></div>
-                <div class="item-info">
-                    <strong class="item-name">Led Amarelo</strong>
-                    <span class="item-quantity">Quantidade disponível: 10</span>
-                </div>
-                <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-            </div>
+            <?php
+// 1. Consulta ao banco puxando os dados do Item e o Nome da Categoria
+$sql = "SELECT i.*, c.Nome as nome_categoria 
+        FROM Item i 
+        INNER JOIN Categoria c ON i.id_cat = c.id_cat 
+        ORDER BY i.Nome ASC";
 
-            <div class="item-card" onclick="openProductModal(this)" data-name="LED Azul Difuso" data-img="LEDAZUL.jpg" data-qty="5" data-cat="Componentes Ópticos" data-desc="LED Azul de 5mm. Perfeito para indicação de status em circuitos eletrônicos. Tensão de operação típica de 3.0V a 3.2V.">
-                <div class="item-image-container"><img src="LEDAZUL.jpg" alt="Led Azul"></div>
-                <div class="item-info">
-                    <strong class="item-name">Led Azul</strong>
-                    <span class="item-quantity">Quantidade disponível: 5</span>
-                </div>
-                <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-            </div>
+$result = $conn->query($sql);
 
-            <div class="item-card" onclick="openProductModal(this)" data-name="LED Verde Standard" data-img="LEDVERDE.jpg" data-qty="22" data-cat="Componentes Ópticos" data-desc="LED Verde clássico para uso geral. Alta durabilidade e fácil aplicação em protoboards.">
-                <div class="item-image-container"><img src="LEDVERDE.jpg" alt="Led Verde"></div>
-                <div class="item-info">
-                    <strong class="item-name">Led Verde</strong>
-                    <span class="item-quantity">Quantidade disponível: 22</span>
-                </div>
-                <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-            </div>
+if ($result && $result->num_rows > 0):
+    while($item = $result->fetch_assoc()): 
+        // Define a imagem: se estiver vazio no banco, usa a padrão do seu projeto
+        $img_exibicao = !empty($item['Imagem']) ? $item['Imagem'] : 'LOGOCHECKSEMDESCR.jpg';
+        
+        // Prepara a descrição para o data-desc (evita erros com aspas)
+        $descricao = htmlspecialchars($item['Descricao_Item'] ?? 'Sem descrição disponível.');
+        
+    // Verifica se a imagem existe e se o arquivo realmente está na pasta
+    $caminho_arquivo = "uploads/" . $item['Imagem'];
+    
+    if (!empty($item['Imagem']) && file_exists($caminho_arquivo)) {
+        $img_exibicao = $caminho_arquivo;
+    } else {
+        // Se não houver imagem ou o arquivo sumiu, usa a padrão na raiz
+        $img_exibicao = 'LOGOCHECKSEMDESCR.jpg';
+    }
+?>
 
-            <div class="item-card" onclick="openProductModal(this)" data-name="Placa Arduino Uno R3" data-img="ARDUINO.webp" data-qty="0" data-cat="Microcontroladores" data-desc="Placa microcontroladora baseada no ATmega328P. Possui 14 pinos de entrada/saída digital.">
-                <div class="item-image-container"><img src="ARDUINO.webp" alt="Arduino"></div>
-                <div class="item-info">
-                    <strong class="item-name">Arduino</strong>
-                    <span class="item-quantity">Quantidade disponível: 0</span>
-                </div>
-                <div class="add-to-cart-btn out-of-stock"><i class="bi bi-x-lg"></i> Indisponível</div>
-            </div>
+    <div class="item-card" 
+         onclick="openProductModal(this)" 
+         data-name="<?php echo htmlspecialchars($item['Nome']); ?>" 
+         data-img="<?php echo $img_exibicao; ?>" 
+         data-qty="<?php echo $item['Qntd']; ?>" 
+         data-cat="<?php echo htmlspecialchars($item['nome_categoria']); ?>" 
+         data-desc="<?php echo $descricao; ?>">
+         
+        <div class="item-image-container">
+            <img src="<?php echo $img_exibicao; ?>" alt="<?php echo htmlspecialchars($item['Nome']); ?>">
+        </div>
+        
+        <div class="item-info">
+            <strong class="item-name"><?php echo htmlspecialchars($item['Nome']); ?></strong>
+            <span class="item-quantity">Quantidade disponível: <?php echo $item['Qntd']; ?></span>
+        </div>
+        
+        <div class="add-to-cart-btn" onclick="event.stopPropagation(); adicionarAoCarrinho(<?php echo $item['id_item']; ?>, '<?php echo addslashes($item['Nome']); ?>')">
+            <i class="bi bi-plus"></i> Adicionar
+        </div>
+    </div>
 
-            <div class="item-card" onclick="openProductModal(this)" data-name="Fio Jumper Vermelho" data-img="FIOVERMELHO.webp" data-qty="8" data-cat="Cabos e Conectores" data-desc="Fio flexível vermelho para conexões em protoboard. Bitola ideal para eletrônica de baixa potência.">
-                <div class="item-image-container"><img src="FIOVERMELHO.webp" alt="Fio Vermelho"></div>
-                <div class="item-info">
-                    <strong class="item-name">Fio Vermelho</strong>
-                    <span class="item-quantity">Quantidade disponível: 8</span>
-                </div>
-                <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-            </div>
-
-            <div class="item-card" onclick="openProductModal(this)" data-name="Kit Parafusos M3" data-img="PARAFUSO1.jpg" data-qty="12" data-cat="Ferramentas e Fixação" data-desc="Parafusos pequenos padrão M3, utilizados para fixação de placas e suportes em cases de acrílico ou metal.">
-                <div class="item-image-container"><img src="PARAFUSO1.jpg" alt="Parafuso Pequeno"></div>
-                <div class="item-info">
-                    <strong class="item-name">Parafuso Pequeno</strong>
-                    <span class="item-quantity">Quantidade disponível: 12</span>
-                </div>
-                <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-            </div>
-
-            <div class="item-card" onclick="openProductModal(this)" data-name="Fonte de Alimentação ATX" data-img="FontePcLABCHECK.jpg" data-qty="3" data-cat="Hardware / Energia" data-desc="Fonte de alimentação para computadores Desktop. Padrão ATX, 500W de potência real. Bivolt chaveado.">
-                <div class="item-image-container"><img src="FontePcLABCHECK.jpg" alt="Fonte PC"></div>
-                <div class="item-info">
-                    <strong class="item-name">Fonte PC</strong>
-                    <span class="item-quantity">Quantidade disponível: 3</span>
-                </div>
-                <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-            </div>
-
-            <div class="item-card" onclick="openProductModal(this)" data-name="Cooler Fan 120mm" data-img="CoolerLABCHECK.webp" data-qty="1" data-cat="Hardware / Refrigeração" data-desc="Ventoinha para gabinete 120mm. Alta rotação e baixo ruído. Conector Molex/3 pinos.">
-                <div class="item-image-container"><img src="CoolerLABCHECK.webp" alt="Cooler"></div>
-                <div class="item-info">
-                    <strong class="item-name">Cooler</strong>
-                    <span class="item-quantity">Quantidade disponível: 1</span>
-                </div>
-                <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-            </div>
-
-            <div class="item-card" onclick="openProductModal(this)" data-name="Memória RAM DDR4 8GB" data-img="MemoriaramLABCHECK.jpg" data-qty="30" data-cat="Hardware" data-desc="Pente de memória RAM DDR4 com 8GB de capacidade. Frequência de 2666MHz. Ideal para upgrades em desktops.">
-                <div class="item-image-container"><img src="MemoriaramLABCHECK.jpg" alt="Memória RAM"></div>
-                <div class="item-info">
-                    <strong class="item-name">Memória RAM</strong>
-                    <span class="item-quantity">Quantidade disponível: 30</span>
-                </div>
-                <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-            </div>
-
-            <div class="item-card" onclick="openProductModal(this)" data-name="HD Interno 1TB SATA" data-img="HDDLABCHECK.webp" data-qty="7" data-cat="Hardware / Armazenamento" data-desc="Disco Rígido (HD) interno de 1TB. Conexão SATA III. Ideal para armazenamento em massa de arquivos e backups.">
-                <div class="item-image-container"><img src="HDDLABCHECK.webp" alt="HDD 1TB"></div>
-                <div class="item-info">
-                    <strong class="item-name">HDD 1TB</strong>
-                    <span class="item-quantity">Quantidade disponível: 7</span>
-                </div>
-                <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-            </div>
-
-        </div> 
+<?php 
+    endwhile; 
+else: 
+?>
+    <p>Nenhum item encontrado no catálogo.</p>
+<?php endif; ?>
     </main>
 
     <?php include 'CARRINHOCHECKADM.php'; ?>
