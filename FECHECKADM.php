@@ -1,6 +1,7 @@
 <?php
+ob_start(); 
 session_start();
-require_once 'conexao.php'; // Conecta com o banco de dados
+require_once 'conexao.php'; 
 
 // Segurança
 if (!isset($_SESSION['usuario_id']) || ($_SESSION['usuario_tipo'] !== 'admin' && $_SESSION['usuario_tipo'] !== 'resp')) {
