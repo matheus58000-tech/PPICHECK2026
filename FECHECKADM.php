@@ -37,11 +37,10 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         </div>
         
         <div class="search-container" id="global-search" style="display: none;">
-            <input type="search" id="search-bar" placeholder="Buscar item...">
-            <button type="button" class="search-btn">
-                <i class="bi bi-search"></i> Buscar
-            </button>
-        </div>
+    <input type="search" id="input-busca" placeholder="Buscar item..."> <button type="button" class="search-btn">
+        <i class="bi bi-search"></i> Buscar
+    </button>
+</div>
         
         <nav class="main-nav">
             <div class="nav-dropdown">
@@ -88,66 +87,67 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
     </header>
 
     <main id="view-catalogo" class="main-view catalog-main-container">
-        <h2>Catálogo de Itens</h2>
-        <div class="item-grid">
+    <h2>Catálogo de Itens</h2>
+    <div class="item-grid">
+        <?php
+        // Busca os itens reais do seu banco sistema_check
+        $sql = "SELECT i.*, c.Nome as nome_categoria 
+                FROM Item i 
+                INNER JOIN Categoria c ON i.id_cat = c.id_cat 
+                ORDER BY i.Nome ASC";
 
-            <?php
-// 1. Consulta ao banco puxando os dados do Item e o Nome da Categoria
-$sql = "SELECT i.*, c.Nome as nome_categoria 
-        FROM Item i 
-        INNER JOIN Categoria c ON i.id_cat = c.id_cat 
-        ORDER BY i.Nome ASC";
+        $result = $conn->query($sql);
 
-$result = $conn->query($sql);
+        if ($result && $result->num_rows > 0):
+            while($item = $result->fetch_assoc()): 
+                
+                // Trata a imagem: se não tiver 'uploads/' no banco, a gente coloca
+                $img_db = $item['Imagem'];
+                $img_final = 'LOGOCHECKSEMDESCR.jpg'; 
 
-if ($result && $result->num_rows > 0):
-    while($item = $result->fetch_assoc()): 
-        // Define a imagem: se estiver vazio no banco, usa a padrão do seu projeto
-        $img_exibicao = !empty($item['Imagem']) ? $item['Imagem'] : 'LOGOCHECKSEMDESCR.jpg';
-        
-        // Prepara a descrição para o data-desc (evita erros com aspas)
-        $descricao = htmlspecialchars($item['Descricao_Item'] ?? 'Sem descrição disponível.');
-        
-    // Verifica se a imagem existe e se o arquivo realmente está na pasta
-    $caminho_arquivo = "uploads/" . $item['Imagem'];
-    
-    if (!empty($item['Imagem']) && file_exists($caminho_arquivo)) {
-        $img_exibicao = $caminho_arquivo;
-    } else {
-        // Se não houver imagem ou o arquivo sumiu, usa a padrão na raiz
-        $img_exibicao = 'LOGOCHECKSEMDESCR.jpg';
-    }
-?>
+                if (!empty($img_db)) {
+                    if (strpos($img_db, 'uploads/') === false && $img_db !== 'LOGOCHECKSEMDESCR.jpg') {
+                        $img_final = "uploads/" . $img_db;
+                    } else {
+                        $img_final = $img_db;
+                    }
+                }
 
-    <div class="item-card" 
-         onclick="openProductModal(this)" 
-         data-name="<?php echo htmlspecialchars($item['Nome']); ?>" 
-         data-img="<?php echo $img_exibicao; ?>" 
-         data-qty="<?php echo $item['Qntd']; ?>" 
-         data-cat="<?php echo htmlspecialchars($item['nome_categoria']); ?>" 
-         data-desc="<?php echo $descricao; ?>">
-         
-        <div class="item-image-container">
-            <img src="<?php echo $img_exibicao; ?>" alt="<?php echo htmlspecialchars($item['Nome']); ?>">
-        </div>
-        
-        <div class="item-info">
-            <strong class="item-name"><?php echo htmlspecialchars($item['Nome']); ?></strong>
-            <span class="item-quantity">Quantidade disponível: <?php echo $item['Qntd']; ?></span>
-        </div>
-        
-        <div class="add-to-cart-btn" onclick="event.stopPropagation(); adicionarAoCarrinho(<?php echo $item['id_item']; ?>, '<?php echo addslashes($item['Nome']); ?>')">
-            <i class="bi bi-plus"></i> Adicionar
-        </div>
+                $nome_limpo = htmlspecialchars($item['Nome']);
+                $cat_limpa = htmlspecialchars($item['nome_categoria']);
+                $desc_limpa = htmlspecialchars($item['Descricao_Item'] ?? '');
+        ?>
+
+            <div class="item-card" 
+                 onclick="openProductModal(this)" 
+                 data-name="<?php echo $nome_limpo; ?>" 
+                 data-img="<?php echo $img_final; ?>" 
+                 data-qty="<?php echo $item['Qntd']; ?>" 
+                 data-cat="<?php echo $cat_limpa; ?>" 
+                 data-desc="<?php echo $desc_limpa; ?>">
+                 
+                <div class="item-image-container">
+                    <img src="<?php echo $img_final; ?>" alt="<?php echo $nome_limpo; ?>">
+                </div>
+                
+                <div class="item-info">
+                    <strong class="item-name"><?php echo $nome_limpo; ?></strong>
+                    <span class="item-quantity">Quantidade disponível: <?php echo $item['Qntd']; ?></span>
+                </div>
+                
+                <div class="add-to-cart-btn">
+                    <i class="bi bi-plus"></i> Adicionar
+                </div>
+            </div>
+
+        <?php 
+            endwhile; 
+        else: 
+        ?>
+            <p style="grid-column: 1/-1; text-align: center; padding: 50px;">Nenhum item cadastrado.</p>
+        <?php endif; ?>
     </div>
-
-<?php 
-    endwhile; 
-else: 
-?>
-    <p>Nenhum item encontrado no catálogo.</p>
-<?php endif; ?>
-    </main>
+</main>
 
     <?php include 'CARRINHOCHECKADM.php'; ?>
     <?php include 'PEDIDOSCHECKADM.php'; ?>
@@ -427,6 +427,46 @@ else:
             showToast(msg, 'success');
             switchLabTab(returnTabId, 'Gerenciamento');
         }
+
+ // ================= LÓGICA DE BUSCA INTEGRADA =================
+document.addEventListener('DOMContentLoaded', function() {
+    const inputBusca = document.getElementById('input-busca');
+    
+    if (inputBusca) {
+        inputBusca.addEventListener('input', function() {
+            const termo = this.value.toLowerCase().trim();
+            const cards = document.querySelectorAll('.item-card');
+            let encontrou = false;
+
+            cards.forEach(card => {
+                const nome = card.getAttribute('data-name').toLowerCase();
+                const categoria = card.getAttribute('data-cat').toLowerCase();
+                
+                if (nome.includes(termo) || categoria.includes(termo)) {
+                    card.style.display = "flex"; 
+                    encontrou = true;
+                } else {
+                    card.style.display = "none";
+                }
+            });
+
+            // Gerencia mensagem de erro se nada for encontrado
+            const grid = document.querySelector('.item-grid');
+            let msg = document.getElementById('msg-vazia');
+            if (!encontrou) {
+                if (!msg) {
+                    msg = document.createElement('p');
+                    msg.id = 'msg-vazia';
+                    msg.style.cssText = "grid-column: 1/-1; text-align: center; padding: 40px; color: #666;";
+                    msg.innerHTML = '<i class="bi bi-search" style="font-size: 2rem; display:block;"></i> Nenhum item encontrado.';
+                    grid.appendChild(msg);
+                }
+            } else if (msg) {
+                msg.remove();
+            }
+        });
+    }
+});
 
         // ================= RETORNO DA ABA APÓS RECARREGAR =================
         document.addEventListener('DOMContentLoaded', () => {
