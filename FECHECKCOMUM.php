@@ -464,6 +464,46 @@ global $aba_ativa, $conn, $id_usuario;
             showToast(`Solicitação de +${renovacaoDias} dias enviada com sucesso!`, 'success');
             closeModal('modalRenovacao'); 
         }
+ // ================= LÓGICA DE BUSCA INTEGRADA =================
+ 
+document.addEventListener('DOMContentLoaded', function() {
+    const inputBusca = document.getElementById('input-busca');
+    
+    if (inputBusca) {
+        inputBusca.addEventListener('input', function() {
+            const termo = this.value.toLowerCase().trim();
+            const cards = document.querySelectorAll('.item-card');
+            let encontrou = false;
+
+            cards.forEach(card => {
+                const nome = card.getAttribute('data-name').toLowerCase();
+                const categoria = card.getAttribute('data-cat').toLowerCase();
+                
+                if (nome.includes(termo) || categoria.includes(termo)) {
+                    card.style.display = "flex"; 
+                    encontrou = true;
+                } else {
+                    card.style.display = "none";
+                }
+            });
+
+            // Gerencia mensagem de erro se nada for encontrado
+            const grid = document.querySelector('.item-grid');
+            let msg = document.getElementById('msg-vazia');
+            if (!encontrou) {
+                if (!msg) {
+                    msg = document.createElement('p');
+                    msg.id = 'msg-vazia';
+                    msg.style.cssText = "grid-column: 1/-1; text-align: center; padding: 40px; color: #666;";
+                    msg.innerHTML = '<i class="bi bi-search" style="font-size: 2rem; display:block;"></i> Nenhum item encontrado.';
+                    grid.appendChild(msg);
+                }
+            } else if (msg) {
+                msg.remove();
+            }
+        });
+    }
+});
 
         // Se o PHP processou uma atualização de conta, forçamos a aba da conta a ficar aberta
         <?php if ($aba_ativa === "tab-conta"): ?>
