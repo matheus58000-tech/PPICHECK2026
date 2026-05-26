@@ -3,7 +3,7 @@ ob_start();
 session_start();
 require_once 'conexao.php'; 
 
-// Segurança
+// Segurança: Apenas Admin ou Resp podem aceder
 if (!isset($_SESSION['usuario_id']) || ($_SESSION['usuario_tipo'] !== 'admin' && $_SESSION['usuario_tipo'] !== 'resp')) {
     header("Location: index.php");
     exit();
@@ -86,65 +86,65 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
     </header>
 
     <main id="view-catalogo" class="main-view catalog-main-container">
-    <h2>Catálogo de Itens</h2>
-    <div class="item-grid">
-        <?php
-        $sql = "SELECT i.*, c.Nome as nome_categoria 
-                FROM Item i 
-                INNER JOIN Categoria c ON i.id_cat = c.id_cat 
-                ORDER BY i.Nome ASC";
+        <h2>Catálogo de Itens</h2>
+        <div class="item-grid">
+            <?php
+            $sql = "SELECT i.*, c.Nome as nome_categoria 
+                    FROM Item i 
+                    INNER JOIN Categoria c ON i.id_cat = c.id_cat 
+                    ORDER BY i.Nome ASC";
 
-        $result = $conn->query($sql);
+            $result = $conn->query($sql);
 
-        if ($result && $result->num_rows > 0):
-            while($item = $result->fetch_assoc()): 
-                
-                $img_db = $item['Imagem'];
-                $img_final = 'LOGOCHECKSEMDESCR.jpg'; 
+            if ($result && $result->num_rows > 0):
+                while($item = $result->fetch_assoc()): 
+                    
+                    $img_db = $item['Imagem'];
+                    $img_final = 'LOGOCHECKSEMDESCR.jpg'; 
 
-                if (!empty($img_db)) {
-                    if (strpos($img_db, 'uploads/') === false && $img_db !== 'LOGOCHECKSEMDESCR.jpg') {
-                        $img_final = "uploads/" . $img_db;
-                    } else {
-                        $img_final = $img_db;
+                    if (!empty($img_db)) {
+                        if (strpos($img_db, 'uploads/') === false && $img_db !== 'LOGOCHECKSEMDESCR.jpg') {
+                            $img_final = "uploads/" . $img_db;
+                        } else {
+                            $img_final = $img_db;
+                        }
                     }
-                }
 
-                $nome_limpo = htmlspecialchars($item['Nome']);
-                $cat_limpa = htmlspecialchars($item['nome_categoria']);
-                $desc_limpa = htmlspecialchars($item['Descricao_Item'] ?? '');
-        ?>
+                    $nome_limpo = htmlspecialchars($item['Nome']);
+                    $cat_limpa = htmlspecialchars($item['nome_categoria']);
+                    $desc_limpa = htmlspecialchars($item['Descricao_Item'] ?? '');
+            ?>
 
-            <div class="item-card" 
-                 onclick="openProductModal(this)" 
-                 data-name="<?php echo $nome_limpo; ?>" 
-                 data-img="<?php echo $img_final; ?>" 
-                 data-qty="<?php echo $item['Qntd']; ?>" 
-                 data-cat="<?php echo $cat_limpa; ?>" 
-                 data-desc="<?php echo $desc_limpa; ?>">
-                 
-                <div class="item-image-container">
-                    <img src="<?php echo $img_final; ?>" alt="<?php echo $nome_limpo; ?>">
+                <div class="item-card" 
+                     onclick="openProductModal(this)" 
+                     data-name="<?php echo $nome_limpo; ?>" 
+                     data-img="<?php echo $img_final; ?>" 
+                     data-qty="<?php echo $item['Qntd']; ?>" 
+                     data-cat="<?php echo $cat_limpa; ?>" 
+                     data-desc="<?php echo $desc_limpa; ?>">
+                     
+                    <div class="item-image-container">
+                        <img src="<?php echo $img_final; ?>" alt="<?php echo $nome_limpo; ?>">
+                    </div>
+                    
+                    <div class="item-info">
+                        <strong class="item-name"><?php echo $nome_limpo; ?></strong>
+                        <span class="item-quantity">Quantidade disponível: <?php echo $item['Qntd']; ?></span>
+                    </div>
+                    
+                    <div class="add-to-cart-btn">
+                        <i class="bi bi-plus"></i> Adicionar
+                    </div>
                 </div>
-                
-                <div class="item-info">
-                    <strong class="item-name"><?php echo $nome_limpo; ?></strong>
-                    <span class="item-quantity">Quantidade disponível: <?php echo $item['Qntd']; ?></span>
-                </div>
-                
-                <div class="add-to-cart-btn">
-                    <i class="bi bi-plus"></i> Adicionar
-                </div>
-            </div>
 
-        <?php 
-            endwhile; 
-        else: 
-        ?>
-            <p style="grid-column: 1/-1; text-align: center; padding: 50px;">Nenhum item cadastrado.</p>
-        <?php endif; ?>
-    </div>
-</main>
+            <?php 
+                endwhile; 
+            else: 
+            ?>
+                <p style="grid-column: 1/-1; text-align: center; padding: 50px;">Nenhum item cadastrado.</p>
+            <?php endif; ?>
+        </div>
+    </main>
 
     <?php include 'CARRINHOCHECKADM.php'; ?>
     <?php include 'PEDIDOSCHECKADM.php'; ?>
@@ -204,7 +204,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                 </div>
             </div>
             
-            <div class="modal-footer" style="margin-top: 2rem;">
+            <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%; border-top: 1px solid #eee; padding-top: 15px;">
                 <button class="btn-cancel" onclick="closeCheckoutModal()">Cancelar</button>
                 <button class="btn-confirm" onclick="confirmOrder()">Confirmar</button>
             </div>
@@ -230,7 +230,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                 <textarea id="justificativa-renova" rows="3" placeholder="Por que o prazo precisa ser estendido até esta data?" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; outline:none; resize:none;"></textarea>
             </div>
 
-            <div class="modal-footer" style="margin-top:20px;">
+            <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%; border-top: 1px solid #eee; padding-top: 15px;">
                 <button class="btn-cancel" onclick="closeRenewalModal()">Cancelar</button>
                 <button class="btn-confirm" onclick="confirmRenewal()">Confirmar</button>
             </div>
@@ -411,31 +411,6 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             closeRenewalModal(); 
         }
 
-        function switchLabFilter(targetId, btn) {
-            document.querySelectorAll('#tab-pedidos-lab .btn-filter').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            document.querySelectorAll('#tab-pedidos-lab .orders-container').forEach(c => c.style.display = 'none');
-            document.getElementById(targetId).style.display = 'block';
-        }
-
-        function aprovarPedido(id) { if(confirm('Aprovar pedido #' + id + '?')) { showToast('Pedido Aprovado!', 'success'); } }
-        function devolverPedido(id) { if(confirm('Confirmar devolução do pedido #' + id + '?')) { showToast('Devolução registrada!', 'success'); } }
-        
-        let pedidoAtualId = null;
-        function abrirModalRecusa(id) {
-            pedidoAtualId = id;
-            document.getElementById('modal-msg-titulo').innerText = `Você está recusando o pedido #${id}`;
-            document.getElementById('justificativa').value = '';
-            document.getElementById('modal-recusa').style.display = 'flex'; 
-        }
-        function fecharModalRecusa() { document.getElementById('modal-recusa').style.display = 'none'; pedidoAtualId = null;}
-        function confirmarRecusa() { 
-            if(pedidoAtualId) {
-                showToast(`Pedido #${pedidoAtualId} RECUSADO.`, 'error'); 
-                fecharModalRecusa(); 
-            }
-        }
-
         // ================= LÓGICA DE BUSCA INTEGRADA =================
         document.addEventListener('DOMContentLoaded', function() {
             const inputBusca = document.getElementById('input-busca');
@@ -481,7 +456,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                 switchAppView('view-conta', document.getElementById('nav-conta-btn'));
             <?php elseif ($aba_ativa === "view-lab"): ?>
                 switchAppView('view-lab', document.getElementById('nav-lab-btn'));
-                switchLabTab('<?php echo $sub_aba_ativa; ?>', 'Gerenciamento de Usuários');
+                switchLabTab('<?php echo $sub_aba_ativa; ?>', 'Gerenciamento');
             <?php else: ?>
                 switchAppView('view-catalogo', document.getElementById('nav-catalogo-btn'));
             <?php endif; ?>
