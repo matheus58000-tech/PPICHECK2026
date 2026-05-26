@@ -287,23 +287,36 @@ global $aba_ativa, $conn, $id_usuario;
 
     <div id="checkoutModal" class="modal-overlay">
         <div class="modal-content">
-            <h3><i class="bi bi-calendar-check"></i> Agendamento</h3>
-            <div class="modal-section" style="margin-top: 20px;">
-                <label class="modal-label" style="display:block; text-align:left; font-weight:bold; margin-bottom:10px;">Agendar retirada para:</label>
-                <div class="days-options" id="retiradaOptions">
-                    <button class="day-btn" onclick="selectOption('retirada', this)">7 Dias</button>
-                    <button class="day-btn" onclick="selectOption('retirada', this)">15 Dias</button>
-                    <button class="day-btn" onclick="selectOption('retirada', this)">30 Dias</button>
+            <h3><i class="bi bi-calendar-check"></i> Agendamento do Pedido</h3>
+            
+            <div class="modal-section" style="margin-top: 20px; text-align: left;">
+                <label class="modal-label" style="display:block; font-weight:bold; margin-bottom:10px;">Tipo de Retirada:</label>
+                <div style="display: flex; align-items: center; gap: 10px; background: #fff8f8; padding: 12px; border-radius: 8px; border: 1px solid #f5c6cb;">
+                    <input type="checkbox" id="retirada-expressa" style="width: 20px; height: 20px; accent-color: #dc3545; cursor:pointer;">
+                    <label for="retirada-expressa" style="cursor: pointer; font-weight: 600; color: #dc3545; margin:0;">
+                        <i class="bi bi-lightning-charge-fill"></i> Retirada Expressa (Urgente)
+                    </label>
                 </div>
+                <p style="font-size: 0.8rem; color: #666; margin-top: 5px;">* Marque apenas se precisar de separação imediata dos materiais.</p>
             </div>
+
             <div class="modal-section" style="margin-top: 20px;">
                 <label class="modal-label" style="display:block; text-align:left; font-weight:bold; margin-bottom:10px;">Prazo de devolução desejado:</label>
                 <div class="days-options" id="devolucaoOptions">
-                    <button class="day-btn" onclick="selectOption('devolucao', this)">7 Dias</button>
-                    <button class="day-btn" onclick="selectOption('devolucao', this)">15 Dias</button>
-                    <button class="day-btn" onclick="selectOption('devolucao', this)">30 Dias</button>
+                    <button class="day-btn selected" onclick="selectOption('devolucao', this, '7')">7 Dias</button>
+                    <button class="day-btn" onclick="selectOption('devolucao', this, '15')">15 Dias</button>
+                    <button class="day-btn" onclick="selectOption('devolucao', this, '30')">30 Dias</button>
+                    <button class="day-btn" onclick="selectOption('devolucao', this, 'dinamico')">Dinâmico</button>
+                </div>
+                
+                <div id="container-dinamico-devolucao" style="display: none; margin-top: 15px; text-align: left;">
+                    <label class="modal-label">Data Específica:</label>
+                    <input type="date" id="data-dinamica-devolucao" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; margin-bottom:10px; outline:none;">
+                    <label class="modal-label">Justificativa (Obrigatória):</label>
+                    <textarea id="justificativa-devolucao" rows="3" placeholder="Explique a necessidade deste prazo..." style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; outline:none; resize:none;"></textarea>
                 </div>
             </div>
+            
             <div class="modal-actions" style="margin-top: 30px;">
                 <button class="btn-cancel" onclick="closeModal('checkoutModal')">Cancelar</button>
                 <button class="btn-submit" onclick="confirmOrder()">Confirmar Pedido</button>
@@ -315,11 +328,22 @@ global $aba_ativa, $conn, $id_usuario;
         <div class="modal-content">
             <h3 style="color:#0f006d;"><i class="bi bi-calendar-event"></i> Renovação</h3>
             <p style="margin: 15px 0;">Escolha o novo prazo de devolução desejado:</p>
-            <div class="days-options" id="renovacaoOptions" style="margin-bottom: 25px;">
-                <button class="day-btn selected" onclick="selectOption('renovacao', this, 7)">7 Dias</button>
-                <button class="day-btn" onclick="selectOption('renovacao', this, 15)">15 Dias</button>
+            
+            <div class="days-options" id="renovacaoOptions" style="margin-bottom: 15px;">
+                <button class="day-btn selected" onclick="selectOption('renovacao', this, '7')">7 Dias</button>
+                <button class="day-btn" onclick="selectOption('renovacao', this, '15')">15 Dias</button>
+                <button class="day-btn" onclick="selectOption('renovacao', this, '30')">30 Dias</button>
+                <button class="day-btn" onclick="selectOption('renovacao', this, 'dinamico')">Dinâmico</button>
             </div>
-            <div class="modal-actions">
+            
+            <div id="container-dinamico-renovacao" style="display: none; margin-top: 15px; text-align: left;">
+                <label class="modal-label">Nova Data de Devolução:</label>
+                <input type="date" id="data-dinamica-renovacao" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; margin-bottom:10px; outline:none;">
+                <label class="modal-label">Justificativa (Obrigatória):</label>
+                <textarea id="justificativa-renovacao" rows="3" placeholder="Por que o prazo precisa ser estendido até esta data?" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; outline:none; resize:none;"></textarea>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 25px;">
                 <button class="btn-cancel" onclick="closeModal('modalRenovacao')">Cancelar</button>
                 <button class="btn-submit" onclick="confirmRenewal()">Solicitar</button>
             </div>
@@ -329,7 +353,7 @@ global $aba_ativa, $conn, $id_usuario;
     <div id="toast-container"></div>
 
     <script>
-        // Função Central de Notificações Toast
+        // ================= LÓGICA TOAST =================
         function showToast(msg, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -349,24 +373,21 @@ global $aba_ativa, $conn, $id_usuario;
             }, 3500); 
         }
 
-        // Lógica de SPA (Troca de Abas)
+        // ================= SPA & NAVEGAÇÃO =================
         function switchTab(tabId, titleText, navId) {
             document.querySelectorAll('.spa-tab').forEach(t => t.style.display = 'none');
             document.getElementById(tabId).style.display = 'block';
             document.getElementById('page-main-title').innerText = titleText;
             
-            // Barra de busca só no Catálogo
             const searchBar = document.getElementById('global-search-bar');
             if(searchBar) searchBar.style.display = (tabId === 'tab-catalogo') ? 'flex' : 'none';
 
-            // Menu Active
             document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
             if(navId) document.getElementById(navId).classList.add('active');
 
             window.scrollTo({ top: 0, behavior: 'smooth' }); 
         }
 
-        // Lógica Filtro de Pedidos
         function filterPedidos(status) {
             const cards = document.querySelectorAll('#lista-de-pedidos-aluno .pedido-card');
             cards.forEach(card => {
@@ -378,13 +399,12 @@ global $aba_ativa, $conn, $id_usuario;
             });
         }
 
-        // Lógica Modais Gerais
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
         window.onclick = function(e) {
             if (e.target.classList.contains('modal-overlay')) e.target.style.display = 'none';
         }
 
-        // Modal Catálogo - Dinâmico (Verifica o estoque)
+        // ================= CATÁLOGO & CARRINHO =================
         function openProductModal(el) {
             document.getElementById('modal-img').src = el.getAttribute('data-img');
             document.getElementById('modal-title').innerText = el.getAttribute('data-name');
@@ -424,12 +444,27 @@ global $aba_ativa, $conn, $id_usuario;
             document.getElementById('productModal').style.display = 'flex';
         }
 
-        // Carrinho: Quantidade e Checkout
         function updateQty(btn, change) {
             const input = btn.parentElement.querySelector('.qty-input');
             let val = parseInt(input.value) + change;
             if (val < 1) val = 1;
             input.value = val;
+        }
+
+        // ================= MODAIS DE PEDIDO (CHECKOUT E RENOVAÇÃO) =================
+        let prazosSelecionados = { devolucao: '7', renovacao: '7' }; 
+
+        function selectOption(group, btn, val) {
+            const container = document.getElementById(group + 'Options');
+            container.querySelectorAll('.day-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            
+            prazosSelecionados[group] = val;
+
+            const dinamicoContainer = document.getElementById('container-dinamico-' + group);
+            if (dinamicoContainer) {
+                dinamicoContainer.style.display = (val === 'dinamico') ? 'block' : 'none';
+            }
         }
         
         function openCheckoutModal() { 
@@ -441,71 +476,79 @@ global $aba_ativa, $conn, $id_usuario;
         }
         
         function confirmOrder() {
-            if (!document.querySelector('#retiradaOptions .selected') || !document.querySelector('#devolucaoOptions .selected')) {
-                showToast('Selecione os prazos para agendamento.', 'warning');
-                return;
+            if (prazosSelecionados['devolucao'] === 'dinamico') {
+                const data = document.getElementById('data-dinamica-devolucao').value;
+                const just = document.getElementById('justificativa-devolucao').value.trim();
+                if (!data || !just) {
+                    showToast('Data e Justificativa são obrigatórias para prazos dinâmicos!', 'error');
+                    return;
+                }
             }
-            showToast('Pedido Finalizado com sucesso!', 'success');
+
+            const isExpress = document.getElementById('retirada-expressa').checked;
+            if(isExpress) {
+                showToast('Pedido Express registrado com sucesso! (Urgente)', 'success');
+            } else {
+                showToast('Pedido Finalizado com sucesso!', 'success');
+            }
+            
             closeModal('checkoutModal'); 
             switchTab('tab-pedidos', 'Meus Pedidos', 'nav-pedidos');
         }
 
-        // Pedidos: Seleção de Dias e Renovação
-        let renovacaoDias = 7;
-        function selectOption(group, btn, diasVal) {
-            const container = document.getElementById(group + 'Options');
-            container.querySelectorAll('.day-btn').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
-            if(diasVal) renovacaoDias = diasVal;
-        }
-        
         function openRenewalModal() { document.getElementById('modalRenovacao').style.display = 'flex'; }
+        
         function confirmRenewal() { 
-            showToast(`Solicitação de +${renovacaoDias} dias enviada com sucesso!`, 'success');
+            if (prazosSelecionados['renovacao'] === 'dinamico') {
+                const data = document.getElementById('data-dinamica-renovacao').value;
+                const just = document.getElementById('justificativa-renovacao').value.trim();
+                if (!data || !just) {
+                    showToast('Data e Justificativa são obrigatórias para prazos dinâmicos!', 'error');
+                    return;
+                }
+            }
+            showToast(`Solicitação de renovação enviada com sucesso!`, 'success');
             closeModal('modalRenovacao'); 
         }
- // ================= LÓGICA DE BUSCA INTEGRADA =================
- 
-document.addEventListener('DOMContentLoaded', function() {
-    const inputBusca = document.getElementById('input-busca');
-    
-    if (inputBusca) {
-        inputBusca.addEventListener('input', function() {
-            const termo = this.value.toLowerCase().trim();
-            const cards = document.querySelectorAll('.item-card');
-            let encontrou = false;
 
-            cards.forEach(card => {
-                const nome = card.getAttribute('data-name').toLowerCase();
-                const categoria = card.getAttribute('data-cat').toLowerCase();
-                
-                if (nome.includes(termo) || categoria.includes(termo)) {
-                    card.style.display = "flex"; 
-                    encontrou = true;
-                } else {
-                    card.style.display = "none";
-                }
-            });
+        // ================= LÓGICA DE BUSCA INTEGRADA =================
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputBusca = document.getElementById('search-bar'); // Ajustado ID para search-bar padrão
+            if (inputBusca) {
+                inputBusca.addEventListener('input', function() {
+                    const termo = this.value.toLowerCase().trim();
+                    const cards = document.querySelectorAll('.item-card');
+                    let encontrou = false;
 
-            // Gerencia mensagem de erro se nada for encontrado
-            const grid = document.querySelector('.item-grid');
-            let msg = document.getElementById('msg-vazia');
-            if (!encontrou) {
-                if (!msg) {
-                    msg = document.createElement('p');
-                    msg.id = 'msg-vazia';
-                    msg.style.cssText = "grid-column: 1/-1; text-align: center; padding: 40px; color: #666;";
-                    msg.innerHTML = '<i class="bi bi-search" style="font-size: 2rem; display:block;"></i> Nenhum item encontrado.';
-                    grid.appendChild(msg);
-                }
-            } else if (msg) {
-                msg.remove();
+                    cards.forEach(card => {
+                        const nome = card.getAttribute('data-name').toLowerCase();
+                        const categoria = card.getAttribute('data-cat').toLowerCase();
+                        
+                        if (nome.includes(termo) || categoria.includes(termo)) {
+                            card.style.display = "flex"; 
+                            encontrou = true;
+                        } else {
+                            card.style.display = "none";
+                        }
+                    });
+
+                    const grid = document.querySelector('.item-grid');
+                    let msg = document.getElementById('msg-vazia');
+                    if (!encontrou) {
+                        if (!msg) {
+                            msg = document.createElement('p');
+                            msg.id = 'msg-vazia';
+                            msg.style.cssText = "grid-column: 1/-1; text-align: center; padding: 40px; color: #666;";
+                            msg.innerHTML = '<i class="bi bi-search" style="font-size: 2rem; display:block;"></i> Nenhum item encontrado.';
+                            grid.appendChild(msg);
+                        }
+                    } else if (msg) {
+                        msg.remove();
+                    }
+                });
             }
         });
-    }
-});
 
-        // Se o PHP processou uma atualização de conta, forçamos a aba da conta a ficar aberta
         <?php if ($aba_ativa === "tab-conta"): ?>
             window.addEventListener('DOMContentLoaded', function() {
                 switchTab('tab-conta', 'Minha Conta', 'nav-conta');
