@@ -77,7 +77,6 @@ $stmt_status->execute();
 $res_status = $stmt_status->get_result()->fetch_assoc();
 $status_exibicao = $res_status['status'] ?? 'ativo';
 
-// Exporta variáveis globais para as abas incluídas
 global $aba_ativa, $conn, $id_usuario;
 ?>
 <!DOCTYPE html>
@@ -317,7 +316,7 @@ global $aba_ativa, $conn, $id_usuario;
                 </div>
             </div>
             
-            <div class="modal-actions" style="margin-top: 30px;">
+            <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%; border-top: 1px solid #eee; padding-top: 15px;">
                 <button class="btn-cancel" onclick="closeModal('checkoutModal')">Cancelar</button>
                 <button class="btn-submit" onclick="confirmOrder()">Confirmar Pedido</button>
             </div>
@@ -343,7 +342,7 @@ global $aba_ativa, $conn, $id_usuario;
                 <textarea id="justificativa-renovacao" rows="3" placeholder="Por que o prazo precisa ser estendido até esta data?" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; outline:none; resize:none;"></textarea>
             </div>
 
-            <div class="modal-actions" style="margin-top: 25px;">
+            <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%; border-top: 1px solid #eee; padding-top: 15px;">
                 <button class="btn-cancel" onclick="closeModal('modalRenovacao')">Cancelar</button>
                 <button class="btn-submit" onclick="confirmRenewal()">Solicitar</button>
             </div>
@@ -513,7 +512,7 @@ global $aba_ativa, $conn, $id_usuario;
 
         // ================= LÓGICA DE BUSCA INTEGRADA =================
         document.addEventListener('DOMContentLoaded', function() {
-            const inputBusca = document.getElementById('search-bar'); // Ajustado ID para search-bar padrão
+            const inputBusca = document.getElementById('search-bar');
             if (inputBusca) {
                 inputBusca.addEventListener('input', function() {
                     const termo = this.value.toLowerCase().trim();
