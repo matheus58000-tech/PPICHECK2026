@@ -28,6 +28,31 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
     <link rel="stylesheet" href="FECHECKADMCSS.css?v=<?php echo time(); ?>"> 
+
+    <style>
+        /* ============================================================== */
+        /* MÁGICA DO MENU: Mantém o Dropdown aberto por um tempinho       */
+        /* ============================================================== */
+        .main-nav .nav-dropdown .dropdown-content {
+            display: flex !important; /* Garante que existe no DOM */
+            flex-direction: column;
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none; /* Ignora cliques quando invisível */
+            
+            /* Ao tirar o mouse: segura 0.3s, depois apaga em 0.2s */
+            transition: visibility 0s 0.5s, opacity 0.2s linear 0.3s;
+        }
+
+        .main-nav .nav-dropdown:hover .dropdown-content {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto; /* Permite cliques */
+            
+            /* Ao colocar o mouse: aparece imediatamente */
+            transition: visibility 0s 0s, opacity 0.2s linear 0s;
+        }
+    </style>
 </head>
 <body>
 
