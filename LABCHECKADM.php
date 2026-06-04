@@ -518,7 +518,6 @@ while ($cat = $res_categorias->fetch_assoc()) {
         </div>
     </div>
 
-
     <div id="tab-estoque" class="spa-tab" style="display: none;">
         <div class="content-area">
             <div class="stock-list-header">
@@ -1027,19 +1026,19 @@ while ($cat = $res_categorias->fetch_assoc()) {
 </div>
 
 <script>
-    // 1. Gaveta de Utilizadores - Versão Totalmente Segura com !important
+    // 1. Gaveta de Utilizadores - Versão Corrigida
     function togglePedidos(btn, userId) {
         const rowDetail = document.getElementById('row-detail-' + userId);
         const icon = btn.querySelector('i');
 
         if (!rowDetail) {
-            console.error('Gaveta não encontrada: row-detail-' + userId);
+            console.error('Row não encontrada: row-detail-' + userId);
             return;
         }
 
         const estaAberto = rowDetail.classList.contains('row-aberta');
 
-        // Fecha todas as outras gavetas
+        // Fecha todos
         document.querySelectorAll('.row-detalhes').forEach(el => {
             el.classList.remove('row-aberta');
             el.style.setProperty('display', 'none', 'important');
@@ -1049,7 +1048,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
             ic.classList.add('bi-plus-lg');
         });
 
-        // Se estava fechada, abre apenas a clicada
+        // Se estava fechado, abre o clicado
         if (!estaAberto) {
             rowDetail.classList.add('row-aberta');
             rowDetail.style.setProperty('display', 'table-row', 'important');
@@ -1060,7 +1059,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
         }
     }
 
-    // 2. Acionar Comandos com Criação de Formulário Dinâmico (Evita conflitos de DOM)
+    // 2. Acionar Comandos com Criação de Formulário Dinâmico
     function enviarAcaoDinamicamente(nomeAcao, valorAcao, nomeId, valorId) {
         const form = document.createElement('form');
         form.method = 'POST';
@@ -1127,7 +1126,9 @@ while ($cat = $res_categorias->fetch_assoc()) {
             document.getElementById('edit_item_descricao').value = dados.Descricao_Item;
             document.getElementById('edit_item_qntd').value = dados.Qntd;
             document.getElementById('modalEditItem').style.display = 'flex';
-        } catch(e) { console.error("Erro ao ler JSON de item:", e); }
+        } catch(e) {
+            console.error("Erro ao ler JSON de item:", e);
+        }
     }
 
     function abrirModalEditCategoria(btn) {
@@ -1138,9 +1139,11 @@ while ($cat = $res_categorias->fetch_assoc()) {
             document.getElementById('edit_cat_nome').value = dados.Nome;
             document.getElementById('edit_cat_desc').value = dados.Descricao_cat;
             document.getElementById('modalEditCategoria').style.display = 'flex';
-        } catch(e) { console.error("Erro ao ler JSON de categoria:", e); }
+        } catch(e) {
+            console.error("Erro ao ler JSON de categoria:", e);
+        }
     }
-    
+
     // Injetar modais no body ao carregar para evitar problemas com display: none
     window.addEventListener('DOMContentLoaded', () => {
         const modaisParaMover = ['modal-recusa', 'modalEditCategoria', 'modalEditItem', 'modalEditUser'];
