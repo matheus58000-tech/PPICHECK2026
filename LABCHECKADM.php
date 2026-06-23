@@ -2,9 +2,6 @@
 $mensagem_lab = "";
 $erros_lab = [];
 
-// =========================================================================
-// LÊ AS MENSAGENS E ABAS DA SESSÃO (Pós-Redirecionamento Anti-F5)
-// =========================================================================
 if (isset($_SESSION['msg_sucesso_lab'])) {
     $m = addslashes($_SESSION['msg_sucesso_lab']);
     $mensagem_lab .= "<script>window.addEventListener('DOMContentLoaded', () => { setTimeout(() => showToast('$m', 'success'), 300); });</script>";
@@ -24,7 +21,7 @@ if (isset($_SESSION['sub_aba_ativa'])) {
     unset($_SESSION['sub_aba_ativa']);
 }
 
-// Função auxiliar para redirecionar rápido e matar o POST (Evita F5 duplicar)
+
 if (!function_exists('redirectLab')) {
     function redirectLab($aba, $sub_aba) {
         $_SESSION['aba_ativa'] = $aba;
@@ -34,9 +31,8 @@ if (!function_exists('redirectLab')) {
     }
 }
 
-// =========================================================================
-// 1. PROCESSAMENTO DE UTILIZADORES
-// =========================================================================
+
+
 $abrir_modal_edit_user = false;
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
@@ -69,7 +65,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
                 $tipo = trim($_POST['edit_tipo']);
                 $nova_senha = $_POST['edit_senha'];
 
-                // Validações
                 if (empty($nome) || strlen($nome) < 3) $erros_lab['edit_nome'] = "Mín. 3 letras.";
                 $cpf_limpo = preg_replace('/[^0-9]/', '', $cpf); 
                 if (empty($cpf_limpo) || strlen($cpf_limpo) !== 11) $erros_lab['edit_cpf'] = "Exatos 11 dígitos.";
@@ -78,7 +73,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
                 if (count($erros_lab) > 0) {
                     $erros_lab['geral_edit_user'] = "Erro na edição. Verifique os campos preenchidos.";
                     $sub_aba_ativa = "tab-usuarios";
-                    $abrir_modal_edit_user = true; // Força o modal a reabrir
+                    $abrir_modal_edit_user = true; 
                 } else {
                     if (!empty($nova_senha)) {
                         $hash = password_hash($nova_senha, PASSWORD_DEFAULT);
@@ -148,9 +143,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
     }
 }
 
-// =========================================================================
-// 2. PROCESSAMENTO DO ESTOQUE (ITENS)
-// =========================================================================
 $abrir_modal_edit_item = false;
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_item'])) {
     $aba_ativa = "view-lab"; 
@@ -173,9 +165,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_item'])) {
                 $erros_lab['geral'] = "Por favor, verifique os campos destacados e tente novamente.";
                 $sub_aba_ativa = "tab-novo-item"; 
             } else {
-                $imagem = ''; // Por padrão, a string fica vazia (o sistema carregará a imagem padrão no frontend)
+                $imagem = ''; 
                 
-                // Se o usuário mandou uma foto, a gente salva
+               
                 if (isset($_FILES['add_item_foto']) && $_FILES['add_item_foto']['error'] == 0) {
                     $ext = pathinfo($_FILES['add_item_foto']['name'], PATHINFO_EXTENSION);
                     $imagem = uniqid() . "." . $ext;
@@ -240,9 +232,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_item'])) {
     }
 }
 
-// =========================================================================
-// 3. PROCESSAMENTO DE CATEGORIAS
-// =========================================================================
+
 $abrir_modal_edit_cat = false;
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_categoria'])) {
     $aba_ativa = "view-lab"; 
@@ -308,10 +298,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_categoria'])) {
     }
 }
 
-// IMPRIME AS MENSAGENS GUARDADAS NA VARIÁVEL
 echo $mensagem_lab;
 
-// Busca categorias para os Dropdowns
 $res_categorias = $conn->query("SELECT * FROM Categoria ORDER BY Nome ASC");
 $categorias_array = [];
 while ($cat = $res_categorias->fetch_assoc()) {
@@ -1095,7 +1083,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Lógica de Filtro do Estoque
+        
         const searchInput = document.getElementById('estoque-search');
         const categoryFilter = document.getElementById('estoque-category-filter');
         
@@ -1109,7 +1097,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
             let visibleCount = 0;
 
             rows.forEach(row => {
-                if (row.cells.length === 1) return; // Ignora linha vazia
+                if (row.cells.length === 1) return; 
 
                 const itemName = row.querySelector('td:nth-child(2) strong').textContent.toLowerCase();
                 const itemCategory = row.querySelector('td:nth-child(3) span').textContent.toLowerCase();
@@ -1145,7 +1133,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
         if (categoryFilter) categoryFilter.addEventListener('change', filterEstoque);
     });
 
-    // 1. Lógica Filtro de Pedidos - Alterado id para 'andamento'
+   
     function switchLabFilter(targetId, btn) {
         document.querySelectorAll('#tab-pedidos-lab .btn-filter').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
@@ -1153,7 +1141,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
         document.getElementById(targetId).style.display = 'block';
     }
 
-    // 2. Ações Básicas de Pedido
+   
     function aprovarPedido(id) { 
         if(confirm('Aprovar pedido #' + id + '?')) showToast('Pedido Aprovado!', 'success'); 
     }
@@ -1173,7 +1161,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
         }
     }
 
-    // 3. Funções da Página de Devolução
+    
     function abrirDevolucao(idPedido, usuario, data) {
         document.getElementById('dev-pedido-id').innerText = `Pedido #${idPedido}`;
         document.getElementById('dev-pedido-user').innerText = usuario;
@@ -1201,7 +1189,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
         switchLabTab('tab-pedidos-lab', 'Gerenciamento de Pedidos');
     }
 
-    // 4. Gaveta de Utilizadores
+    
     function togglePedidos(btn, userId) {
         const rowDetail = document.getElementById('row-detail-' + userId);
         const icon = btn.querySelector('i');
@@ -1213,7 +1201,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
 
         const estaAberto = rowDetail.classList.contains('row-aberta');
 
-        // Fecha todos
+       
         document.querySelectorAll('.row-detalhes').forEach(el => {
             el.classList.remove('row-aberta');
             el.style.setProperty('display', 'none', 'important');
@@ -1223,7 +1211,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
             ic.classList.add('bi-plus-lg');
         });
 
-        // Se estava fechado, abre o clicado
+        
         if (!estaAberto) {
             rowDetail.classList.add('row-aberta');
             rowDetail.style.setProperty('display', 'table-row', 'important');
@@ -1234,7 +1222,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
         }
     }
 
-    // 5. Acionar Comandos com Criação de Formulário Dinâmico
+   
     function enviarAcaoDinamicamente(nomeAcao, valorAcao, nomeId, valorId) {
         const form = document.createElement('form');
         form.method = 'POST';
@@ -1272,7 +1260,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
         enviarAcaoDinamicamente('acao_categoria', acao, 'id_alvo_cat', id);
     }
 
-    // 6. Preenchimento Seguro dos Modais usando data-info
+   
     function abrirModalEditUser(btn) {
         try {
             const rawData = btn.getAttribute('data-info');
@@ -1319,7 +1307,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
         }
     }
 
-    // Injetar modais no body ao carregar para evitar problemas com display: none
+   
     window.addEventListener('DOMContentLoaded', () => {
         const modaisParaMover = ['modal-recusa', 'modalEditCategoria', 'modalEditItem', 'modalEditUser'];
         modaisParaMover.forEach(id => {
@@ -1330,7 +1318,6 @@ while ($cat = $res_categorias->fetch_assoc()) {
 </script>
 
 <?php 
-// SCRIPT DE REABERTURA AUTOMÁTICA DOS MODAIS (Pós-Erros de Validação)
 if (isset($abrir_modal_edit_item) && $abrir_modal_edit_item): 
 ?>
 <script>
