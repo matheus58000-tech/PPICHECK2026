@@ -1,20 +1,56 @@
 <?php
 session_start();
-require_once 'conexao.php'; // Conecta com o banco de dados
+require_once 'conexao.php';
 
-// Segurança
 if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_tipo'] !== 'padrao') {
     header("Location: index.php");
     exit();
 }
 
 $id_usuario = $_SESSION['usuario_id'];
-$aba_ativa = "tab-catalogo"; 
+$aba_ativa = "tab-catalogo";
 
-// =========================================================================
-// PROCESSAMENTO DO FORMULÁRIO DA CONTA (PADRÃO PRG)
-// =========================================================================
+$pesquisa = isset($_GET['pesquisa']) ? trim($_GET['pesquisa']) : '';
+$categoria_filtro = isset($_GET['categoria_filtro']) ? trim($_GET['categoria_filtro']) : '';
+
+if (!empty($pesquisa) || !empty($categoria_filtro)) {
+    $aba_ativa = "tab-catalogo";
+    $id_usuario = $_SESSION['usuario_id'];
+    $aba_ativa = "tab-catalogo";
+    $mensagem_toast = "";
+}
+
+$sql_cat = "SELECT i.*, c.Nome as nome_categoria FROM Item i LEFT JOIN Categoria c ON i.id_cat = c.id_cat WHERE 1=1";
+$params = [];
+$types = "";
+
+if (!empty($pesquisa)) {
+    $sql_cat .= " AND (i.Nome LIKE ? OR i.Descricao_Item LIKE ?)";
+    $searchParam = "%" . $pesquisa . "%";
+    $params[] = $searchParam;
+    $params[] = $searchParam;
+    $types .= "ss";
+}
+
+if (!empty($categoria_filtro)) {
+    $sql_cat .= " AND i.id_cat = ?";
+    $params[] = $categoria_filtro;
+    $types .= "i";
+}
+
+$sql_cat .= " ORDER BY i.Nome ASC";
+$stmt_itens = $conn->prepare($sql_cat);
+
+if (!empty($params)) {
+    $stmt_itens->bind_param($types, ...$params);
+}
+$stmt_itens->execute();
+$resultado_itens = $stmt_itens->get_result();
+
+$categorias_disponiveis = $conn->query("SELECT * FROM Categoria ORDER BY Nome ASC");
+
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
+    $aba_ativa = "tab-conta";
     $novo_email = $_POST['email'];
     $senha_atual = $_POST['senha_atual'];
     $nova_senha = $_POST['nova_senha'];
@@ -33,51 +69,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
                 $_SESSION['msg_erro'] = "A senha atual está incorreta.";
             } else {
                 $senha_hash = password_hash($nova_senha, PASSWORD_DEFAULT);
-                $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ?, Senha = ? WHERE id_user = ?");
-                $stmt_upd->bind_param("ssi", $novo_email, $senha_hash, $id_usuario);
-                $stmt_upd->execute();
-                $_SESSION['msg_sucesso'] = "Dados e senha atualizados com sucesso!";
+                $stmt_up = $conn->prepare("UPDATE Usuarios SET Email = ?, Senha = ? WHERE id_user = ?");
+                $stmt_up->bind_param("ssi", $novo_email, $senha_hash, $id_usuario);
+                $stmt_up->execute();
+                $_SESSION['msg_sucesso'] = "Dados updated com sucesso!";
             }
         } else {
-            $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ? WHERE id_user = ?");
-            $stmt_upd->bind_param("si", $novo_email, $id_usuario);
-            $stmt_upd->execute();
-            $_SESSION['msg_sucesso'] = "Email atualizado com sucesso!";
+            $stmt_up = $conn->prepare("UPDATE Usuarios SET Email = ? WHERE id_user = ?");
+            $stmt_up->bind_param("si", $novo_email, $id_usuario);
+            $stmt_up->execute();
+            $_SESSION['msg_sucesso'] = "E-mail updated com sucesso!";
         }
-    } catch (\Exception $e) {
-        $_SESSION['msg_erro'] = "Erro: O E-mail digitado já está em uso.";
+    } catch (Exception $e) {
+        $_SESSION['msg_erro'] = "Erro ao atualizar os dados.";
     }
-
-    $_SESSION['aba_ativa'] = 'tab-conta';
-    header("Location: FECHECKCOMUM.php");
+    header("Location: FECHECKCOMUM.php?aba=tab-conta");
     exit();
 }
 
-// =========================================================================
-// LÊ AS MENSAGENS E PREPARA O TOAST
-// =========================================================================
-$mensagem_toast = "";
-if (isset($_SESSION['msg_sucesso'])) {
-    $mensagem_toast = "<script>window.addEventListener('DOMContentLoaded', () => showToast('" . addslashes($_SESSION['msg_sucesso']) . "', 'success'));</script>";
-    unset($_SESSION['msg_sucesso']);
-} elseif (isset($_SESSION['msg_erro'])) {
-    $mensagem_toast = "<script>window.addEventListener('DOMContentLoaded', () => showToast('" . addslashes($_SESSION['msg_erro']) . "', 'error'));</script>";
-    unset($_SESSION['msg_erro']);
+if (isset($_GET['aba'])) {
+    $aba_ativa = $_GET['aba'];
 }
-
-if (isset($_SESSION['aba_ativa'])) {
-    $aba_ativa = $_SESSION['aba_ativa'];
-    unset($_SESSION['aba_ativa']);
-}
-
-// Verifica status do usuário para bloquear o botão de carrinho se precisar
-$stmt_status = $conn->prepare("SELECT status FROM Usuarios WHERE id_user = ?");
-$stmt_status->bind_param("i", $id_usuario);
-$stmt_status->execute();
-$res_status = $stmt_status->get_result()->fetch_assoc();
-$status_exibicao = $res_status['status'] ?? 'ativo';
-
-global $aba_ativa, $conn, $id_usuario;
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -93,7 +105,7 @@ global $aba_ativa, $conn, $id_usuario;
     
     <link rel="stylesheet" href="FECHECKCOMUMCSS.css?v=<?php echo time(); ?>"> 
     
-    <?php echo $mensagem_toast; ?>
+    <?php if (isset($mensagem_toast) && !empty($mensagem_toast)) { echo $mensagem_toast; } ?>
 </head>
 <body>
 
@@ -140,101 +152,92 @@ global $aba_ativa, $conn, $id_usuario;
             <h1 id="page-main-title">Catálogo de Itens</h1>
         </div>
 
-        <div id="tab-catalogo" class="spa-tab">
-            <div class="item-grid">
+        
+<div id="tab-catalogo" class="spa-tab" style="<?php echo $aba_ativa === 'tab-catalogo' ? 'display: block;' : 'display: none;'; ?>">
+    
+    <form method="GET" action="FECHECKCOMUM.php" style="display: flex; gap: 10px; margin-bottom: 20px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); width: 100%;">
+        <input type="text" name="pesquisa" value="<?php echo htmlspecialchars($pesquisa); ?>" placeholder="Filtrar por nome ou descrição..." style="flex: 2; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem;">
+        
+        <select name="categoria_filtro" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem; background: #fff;">
+            <option value="">Todas as Categorias</option>
+            <?php if ($categorias_disponiveis && $categorias_disponiveis->num_rows > 0): ?>
+                <?php while($cat = $categorias_disponiveis->fetch_assoc()): ?>
+                    <option value="<?php echo $cat['id_cat']; ?>" <?php echo $categoria_filtro == $cat['id_cat'] ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($cat['Nome']); ?>
+                    </option>
+                <?php endwhile; ?>
+            <?php endif; ?>
+        </select>
+        
+        <button type="submit" style="padding: 10px 20px; background: #0f006d; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Filtrar</button>
+        
+        <?php if(!empty($pesquisa) || !empty($categoria_filtro)): ?>
+            <a href="FECHECKCOMUM.php" style="padding: 10px 20px; background: #6c757d; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600; text-align: center; display: inline-flex; align-items: center;">Limpar</a>
+        <?php endif; ?>
+    </form>
+
+    <div class="item-grid">
+        <?php if ($resultado_itens && $resultado_itens->num_rows > 0): ?>
+            <?php while($item = $resultado_itens->fetch_assoc()): ?>
+                <?php 
+                    $quantidade = (int)$item['Qntd']; 
+                    $indisponivel = ($quantidade <= 0);
+                    
+                    $imagem_nome = trim($item['Imagem'] ?? '');
+                    
+                    if (empty($imagem_nome)) {
+                        $imagem = 'sem-foto.jpg';
+                    } elseif (file_exists($imagem_nome)) {
+                        $imagem = htmlspecialchars($imagem_nome);
+                    } elseif (file_exists('uploads/' . $imagem_nome)) {
+                        $imagem = 'uploads/' . htmlspecialchars($imagem_nome);
+                    } else {
+                        $imagem = 'uploads/' . htmlspecialchars($imagem_nome);
+                    }
+
+                    $nome_completo = htmlspecialchars($item['Nome']);
+                    $categoria = htmlspecialchars($item['nome_categoria'] ?? 'Sem Categoria');
+                    $descricao = htmlspecialchars($item['Descricao_Item']);
+                ?>
                 
-                <div class="item-card" onclick="openProductModal(this)" data-name="LED Amarelo de Alta Luminosidade" data-img="LEDAMARELO.jpg" data-qty="10" data-cat="Componentes Ópticos" data-desc="LED (Diodo Emissor de Luz) na cor amarela. Ideal para projetos de prototipagem e sinalização. Possui baixo consumo de energia.">
-                    <div class="item-image-container"><img src="LEDAMARELO.jpg" alt="Foto do Item 1"></div>
-                    <div class="item-info">
-                        <strong class="item-name">Led Amarelo</strong>
-                        <span class="item-quantity">Quantidade disponível: 10</span>
+                <div class="item-card" onclick="openProductModal(this)" 
+                     data-id="<?php echo (int)$item['id_item']; ?>"
+                     data-name="<?php echo $nome_completo; ?>" 
+                     data-img="<?php echo $imagem; ?>" 
+                     data-qty="<?php echo $quantidade; ?>" 
+                     data-cat="<?php echo $categoria; ?>" 
+                     data-desc="<?php echo $descricao; ?>"
+                     style="cursor: pointer;">
+                     
+                    <div class="item-image-container">
+                        <img src="<?php echo $imagem; ?>" alt="<?php echo $nome_completo; ?>" style="width: 100%; height: 100%; object-fit: contain;">
                     </div>
-                    <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-                </div>
-
-                <div class="item-card" onclick="openProductModal(this)" data-name="LED Azul Difuso" data-img="LEDAZUL.jpg" data-qty="5" data-cat="Componentes Ópticos" data-desc="LED Azul de 5mm. Perfeito para indicação de status em circuitos eletrônicos. Tensão de operação típica de 3.0V a 3.2V.">
-                    <div class="item-image-container"><img src="LEDAZUL.jpg" alt="Foto do Item 2"></div>
+                    
                     <div class="item-info">
-                        <strong class="item-name">Led Azul</strong>
-                        <span class="item-quantity">Quantidade disponível: 5</span>
+                        <strong class="item-name"><?php echo $nome_completo; ?></strong>
+                        <span class="item-quantity">Quantidade disponível: <?php echo $quantidade; ?></span>
                     </div>
-                    <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
+                    
+                    <?php if ($indisponivel): ?>
+                        <div class="add-to-cart-btn out-of-stock" onclick="event.stopPropagation();">
+                            <i class="bi bi-x-lg"></i> Indisponível
+                        </div>
+                    <?php else: ?>
+                        <div class="add-to-cart-btn" onclick="event.stopPropagation(); adicionarAoCarrinho(<?php echo (int)$item['id_item']; ?>);">
+                            <i class="bi bi-plus"></i> Adicionar
+                        </div>
+                    <?php endif; ?>
                 </div>
-
-                <div class="item-card" onclick="openProductModal(this)" data-name="LED Verde Standard" data-img="LEDVERDE.jpg" data-qty="22" data-cat="Componentes Ópticos" data-desc="LED Verde clássico para uso geral. Alta durabilidade e fácil aplicação em protoboards.">
-                    <div class="item-image-container"><img src="LEDVERDE.jpg" alt="Foto do Item 3"></div>
-                    <div class="item-info">
-                        <strong class="item-name">Led Verde</strong>
-                        <span class="item-quantity">Quantidade disponível: 22</span>
-                    </div>
-                    <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-                </div>
-
-                <div class="item-card" onclick="openProductModal(this)" data-name="Placa Arduino Uno R3" data-img="ARDUINO.webp" data-qty="0" data-cat="Microcontroladores" data-desc="Placa microcontroladora baseada no ATmega328P. Possui 14 pinos de entrada/saída digital.">
-                    <div class="item-image-container"><img src="ARDUINO.webp" alt="Foto do Item 4"></div>
-                    <div class="item-info">
-                        <strong class="item-name">Arduino Uno R3</strong>
-                        <span class="item-quantity">Quantidade disponível: 0</span>
-                    </div>
-                    <div class="add-to-cart-btn out-of-stock"><i class="bi bi-x-lg"></i> Indisponível</div>
-                </div>
-
-                <div class="item-card" onclick="openProductModal(this)" data-name="Fio Jumper Vermelho" data-img="FIOVERMELHO.webp" data-qty="8" data-cat="Cabos e Conectores" data-desc="Fio flexível vermelho para conexões em protoboard. Bitola ideal para eletrônica de baixa potência.">
-                    <div class="item-image-container"><img src="FIOVERMELHO.webp" alt="Foto do Item 5"></div>
-                    <div class="item-info">
-                        <strong class="item-name">Fio Jumper Vermelho</strong>
-                        <span class="item-quantity">Quantidade disponível: 8</span>
-                    </div>
-                    <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-                </div>
-
-                <div class="item-card" onclick="openProductModal(this)" data-name="Kit Parafusos M3" data-img="PARAFUSO1.jpg" data-qty="12" data-cat="Ferramentas e Fixação" data-desc="Parafusos pequenos padrão M3, utilizados para fixação de placas e suportes em cases de acrílico ou metal.">
-                    <div class="item-image-container"><img src="PARAFUSO1.jpg" alt="Foto do Item 6"></div>
-                    <div class="item-info">
-                        <strong class="item-name">Parafuso Pequeno</strong>
-                        <span class="item-quantity">Quantidade disponível: 12</span>
-                    </div>
-                    <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-                </div>
-
-                <div class="item-card" onclick="openProductModal(this)" data-name="Fonte de Alimentação ATX" data-img="FontePcLABCHECK.jpg" data-qty="3" data-cat="Hardware / Energia" data-desc="Fonte de alimentação para computadores Desktop. Padrão ATX, 500W de potência real. Bivolt chaveado.">
-                    <div class="item-image-container"><img src="FontePcLABCHECK.jpg" alt="Foto do Item 7"></div>
-                    <div class="item-info">
-                        <strong class="item-name">Fonte PC</strong>
-                        <span class="item-quantity">Quantidade disponível: 3</span>
-                    </div>
-                    <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-                </div>
-
-                <div class="item-card" onclick="openProductModal(this)" data-name="Cooler Fan 120mm" data-img="CoolerLABCHECK.webp" data-qty="1" data-cat="Hardware / Refrigeração" data-desc="Ventoinha para gabinete 120mm. Alta rotação e baixo ruído. Conector Molex/3 pinos.">
-                    <div class="item-image-container"><img src="CoolerLABCHECK.webp" alt="Foto do Item 8"></div>
-                    <div class="item-info">
-                        <strong class="item-name">Cooler</strong>
-                        <span class="item-quantity">Quantidade disponível: 1</span>
-                    </div>
-                    <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-                </div>
-
-                <div class="item-card" onclick="openProductModal(this)" data-name="Memória RAM DDR4 8GB" data-img="MemoriaramLABCHECK.jpg" data-qty="30" data-cat="Hardware" data-desc="Pente de memória RAM DDR4 com 8GB de capacidade. Frequência de 2666MHz. Ideal para upgrades em desktops.">
-                    <div class="item-image-container"><img src="MemoriaramLABCHECK.jpg" alt="Foto do Item 9"></div>
-                    <div class="item-info">
-                        <strong class="item-name">Memória RAM</strong>
-                        <span class="item-quantity">Quantidade disponível: 30</span>
-                    </div>
-                    <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-                </div>
-
-                <div class="item-card" onclick="openProductModal(this)" data-name="HD Interno 1TB SATA" data-img="HDDLABCHECK.webp" data-qty="7" data-cat="Hardware / Armazenamento" data-desc="Disco Rígido (HD) interno de 1TB. Conexão SATA III. Ideal para armazenamento em massa de arquivos e backups.">
-                    <div class="item-image-container"><img src="HDDLABCHECK.webp" alt="Foto do Item 10"></div>
-                    <div class="item-info">
-                        <strong class="item-name">HDD 1TB</strong>
-                        <span class="item-quantity">Quantidade disponível: 7</span>
-                    </div>
-                    <div class="add-to-cart-btn"><i class="bi bi-plus"></i> Adicionar</div>
-                </div>
-
+                
+            <?php endwhile; ?>
+        <?php else: ?>
+            <div id="msg-vazia" style="grid-column: 1/-1; text-align: center; padding: 50px 20px; color: #666; width: 100%;">
+                <i class="bi bi-search" style="font-size: 2.5rem; display: block; margin-bottom: 10px; color: #ccc;"></i>
+                Nenhum item corresponde aos critérios de filtragem.
             </div>
-        </div>
+        <?php endif; ?>
+    </div>
+</div>
 
         <?php include 'CARRINHOCHECKCOMUM.php'; ?>
         <?php include 'PEDIDOSCHECKCOMUM.php'; ?>
@@ -352,7 +355,6 @@ global $aba_ativa, $conn, $id_usuario;
     <div id="toast-container"></div>
 
     <script>
-        // ================= LÓGICA TOAST =================
         function showToast(msg, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -372,7 +374,10 @@ global $aba_ativa, $conn, $id_usuario;
             }, 3500); 
         }
 
-        // ================= SPA & NAVEGAÇÃO =================
+        function adicionarAoCarrinho(idItem) {
+            showToast('Item adicionado ao carrinho!', 'success');
+        }
+
         function switchTab(tabId, titleText, navId) {
             document.querySelectorAll('.spa-tab').forEach(t => t.style.display = 'none');
             document.getElementById(tabId).style.display = 'block';
@@ -403,7 +408,6 @@ global $aba_ativa, $conn, $id_usuario;
             if (e.target.classList.contains('modal-overlay')) e.target.style.display = 'none';
         }
 
-        // ================= CATÁLOGO & CARRINHO =================
         function openProductModal(el) {
             document.getElementById('modal-img').src = el.getAttribute('data-img');
             document.getElementById('modal-title').innerText = el.getAttribute('data-name');
@@ -450,7 +454,6 @@ global $aba_ativa, $conn, $id_usuario;
             input.value = val;
         }
 
-        // ================= MODAIS DE PEDIDO (CHECKOUT E RENOVAÇÃO) =================
         let prazosSelecionados = { devolucao: '7', renovacao: '7' }; 
 
         function selectOption(group, btn, val) {
@@ -510,7 +513,6 @@ global $aba_ativa, $conn, $id_usuario;
             closeModal('modalRenovacao'); 
         }
 
-        // ================= LÓGICA DE BUSCA INTEGRADA =================
         document.addEventListener('DOMContentLoaded', function() {
             const inputBusca = document.getElementById('search-bar');
             if (inputBusca) {
@@ -554,5 +556,3 @@ global $aba_ativa, $conn, $id_usuario;
             });
         <?php endif; ?>
     </script>
-</body>
-</html>
