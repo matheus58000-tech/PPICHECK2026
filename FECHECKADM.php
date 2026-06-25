@@ -13,6 +13,14 @@ $id_usuario = $_SESSION['usuario_id'];
 $aba_ativa = "view-catalogo"; 
 $sub_aba_ativa = "";
 
+$categorias_disponiveis = $conn->query("SELECT * FROM Categoria ORDER BY Nome ASC");
+$categorias_array = [];
+if ($categorias_disponiveis) {
+    while ($cat = $categorias_disponiveis->fetch_assoc()) {
+        $categorias_array[] = $cat;
+    }
+}
+
 global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
 ?>
 <!DOCTYPE html>
@@ -62,8 +70,31 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         </div>
         
         <div class="search-container" id="global-search" style="display: none;">
-            <input type="search" id="input-busca" placeholder="Buscar item..."> 
-            <button type="button" class="search-btn"><i class="bi bi-search"></i> Buscar</button>
+            <input type="search" id="input-busca" placeholder="Buscar item...">
+            <button type="button" class="filter-btn" id="filter-btn" onclick="toggleFilterMenu(event)" title="Filtrar por categoria">
+                <i class="bi bi-funnel"></i>
+                <span class="filter-btn-label">Categorias</span>
+            </button>
+            <button type="button" class="search-btn" onclick="aplicarFiltros()"><i class="bi bi-search"></i> Buscar</button>
+
+            <div id="filter-dropdown" class="filter-dropdown">
+                <div class="filter-dropdown-header">
+                    <span>Filtrar por Categoria</span>
+                    <button type="button" class="filter-close-btn" onclick="toggleFilterMenu(event)" aria-label="Fechar">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <div class="filter-options">
+                    <button type="button" class="filter-option active" data-cat-id="" onclick="selecionarCategoria('', 'Todas')">
+                        <i class="bi bi-grid"></i> Todas as Categorias
+                    </button>
+                    <?php foreach ($categorias_array as $cat): ?>
+                        <button type="button" class="filter-option" data-cat-id="<?php echo (int)$cat['id_cat']; ?>" onclick="selecionarCategoria('<?php echo (int)$cat['id_cat']; ?>', '<?php echo htmlspecialchars($cat['Nome'], ENT_QUOTES); ?>')">
+                            <i class="bi bi-tag"></i> <?php echo htmlspecialchars($cat['Nome']); ?>
+                        </button>
+                    <?php endforeach; ?>
+                </div>
+            </div>
         </div>
         
         <nav class="main-nav">
@@ -145,7 +176,8 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                      data-name="<?php echo $nome_limpo; ?>" 
                      data-img="<?php echo $img_final; ?>" 
                      data-qty="<?php echo $item['Qntd']; ?>" 
-                     data-cat="<?php echo $cat_limpa; ?>" 
+                     data-cat="<?php echo $cat_limpa; ?>"
+                     data-cat-id="<?php echo (int)($item['id_cat'] ?? 0); ?>"
                      data-desc="<?php echo $desc_limpa; ?>">
                      
                     <div class="item-image-container">
@@ -157,9 +189,16 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                         <span class="item-quantity">Quantidade disponível: <?php echo $item['Qntd']; ?></span>
                     </div>
                     
-                    <div class="add-to-cart-btn">
-                        <i class="bi bi-plus"></i> Adicionar
-                    </div>
+                    <?php $indisponivel = ((int)$item['Qntd'] <= 0); ?>
+                    <?php if ($indisponivel): ?>
+                        <div class="add-to-cart-btn out-of-stock" onclick="event.stopPropagation(); openProductModal(this.closest('.item-card'));">
+                            <i class="bi bi-x-lg"></i> Indisponível
+                        </div>
+                    <?php else: ?>
+                        <div class="add-to-cart-btn" onclick="event.stopPropagation(); showToast('Item adicionado ao carrinho!', 'success');">
+                            <i class="bi bi-plus"></i> Adicionar
+                        </div>
+                    <?php endif; ?>
                 </div>
 
             <?php 
@@ -176,7 +215,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
     <?php include 'CONTACHECKADM.php'; ?>
     <?php include 'LABCHECKADM.php'; ?>
 
-    <div id="product-modal" class="modal-overlay">
+    <div id="product-modal" class="modal-overlay" onclick="if(event.target === this) closeProductModal()">
         <div class="modal-card-detail">
             <div class="modal-header-nav" onclick="closeProductModal()"><i class="bi bi-arrow-left"></i> Voltar ao Catálogo</div>
             <div class="modal-body-grid">
@@ -197,7 +236,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         </div>
     </div>
 
-    <div id="checkoutModal" class="modal-overlay">
+    <div id="checkoutModal" class="modal-overlay" onclick="if(event.target === this) closeCheckoutModal()">
         <div class="modal-content">
             <h3 class="modal-heading-blue"><i class="bi bi-calendar-check"></i> Agendamento do Pedido</h3>
             
@@ -236,7 +275,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         </div>
     </div>
 
-    <div id="modalRenovacao" class="modal-overlay">
+    <div id="modalRenovacao" class="modal-overlay" onclick="if(event.target === this) closeRenewalModal()">
         <div class="modal-content">
             <h3 class="modal-heading-blue"><i class="bi bi-calendar-event"></i> Renovação de Empréstimo</h3>
             <p style="margin-bottom:15px; color:#555;">Escolha o novo prazo de devolução:</p>
@@ -436,40 +475,81 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             closeRenewalModal(); 
         }
 
-        // ================= LÓGICA DE BUSCA INTEGRADA =================
+        // ================= FILTRO E BUSCA DO CATÁLOGO =================
+        let categoriaAtiva = '';
+
+        function toggleFilterMenu(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('filter-dropdown');
+            dropdown.classList.toggle('open');
+        }
+
+        function selecionarCategoria(catId, catNome) {
+            categoriaAtiva = catId;
+            document.querySelectorAll('.filter-option').forEach(opt => {
+                opt.classList.toggle('active', opt.getAttribute('data-cat-id') === catId);
+            });
+            const filterBtn = document.getElementById('filter-btn');
+            if (filterBtn) {
+                filterBtn.classList.toggle('has-filter', catId !== '');
+                const label = filterBtn.querySelector('.filter-btn-label');
+                if (label) label.textContent = catId === '' ? 'Categorias' : catNome;
+            }
+            aplicarFiltros();
+            document.getElementById('filter-dropdown').classList.remove('open');
+        }
+
+        function aplicarFiltros() {
+            const inputBusca = document.getElementById('input-busca');
+            const termo = inputBusca ? inputBusca.value.toLowerCase().trim() : '';
+            const cards = document.querySelectorAll('#view-catalogo .item-card');
+            let encontrou = false;
+
+            cards.forEach(card => {
+                const nome = (card.getAttribute('data-name') || '').toLowerCase();
+                const catId = String(card.getAttribute('data-cat-id') || '');
+                const matchTexto = !termo || nome.startsWith(termo);
+                const matchCat = !categoriaAtiva || catId === String(categoriaAtiva);
+
+                if (matchTexto && matchCat) {
+                    card.style.display = 'flex';
+                    encontrou = true;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            const grid = document.querySelector('#view-catalogo .item-grid');
+            let msg = document.getElementById('msg-vazia');
+            if (!encontrou) {
+                if (!msg && grid) {
+                    msg = document.createElement('p');
+                    msg.id = 'msg-vazia';
+                    msg.style.cssText = 'grid-column: 1/-1; text-align: center; padding: 40px; color: #666;';
+                    msg.innerHTML = '<i class="bi bi-search" style="font-size: 2rem; display:block;"></i> Nenhum item encontrado.';
+                    grid.appendChild(msg);
+                }
+            } else if (msg) {
+                msg.remove();
+            }
+        }
+
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('filter-dropdown');
+            const filterBtn = document.getElementById('filter-btn');
+            if (dropdown && filterBtn && dropdown.classList.contains('open') && !dropdown.contains(e.target) && !filterBtn.contains(e.target)) {
+                dropdown.classList.remove('open');
+            }
+        });
+
         document.addEventListener('DOMContentLoaded', function() {
             const inputBusca = document.getElementById('input-busca');
-            
             if (inputBusca) {
-                inputBusca.addEventListener('input', function() {
-                    const termo = this.value.toLowerCase().trim();
-                    const cards = document.querySelectorAll('.item-card');
-                    let encontrou = false;
-
-                    cards.forEach(card => {
-                        const nome = card.getAttribute('data-name').toLowerCase();
-                        const categoria = card.getAttribute('data-cat').toLowerCase();
-                        
-                        if (nome.includes(termo) || categoria.includes(termo)) {
-                            card.style.display = "flex"; 
-                            encontrou = true;
-                        } else {
-                            card.style.display = "none";
-                        }
-                    });
-
-                    const grid = document.querySelector('.item-grid');
-                    let msg = document.getElementById('msg-vazia');
-                    if (!encontrou) {
-                        if (!msg) {
-                            msg = document.createElement('p');
-                            msg.id = 'msg-vazia';
-                            msg.style.cssText = "grid-column: 1/-1; text-align: center; padding: 40px; color: #666;";
-                            msg.innerHTML = '<i class="bi bi-search" style="font-size: 2rem; display:block;"></i> Nenhum item encontrado.';
-                            grid.appendChild(msg);
-                        }
-                    } else if (msg) {
-                        msg.remove();
+                inputBusca.addEventListener('input', aplicarFiltros);
+                inputBusca.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        aplicarFiltros();
                     }
                 });
             }
