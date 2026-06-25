@@ -10,44 +10,16 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_tipo'] !== 'padrao') {
 $id_usuario = $_SESSION['usuario_id'];
 $aba_ativa = "tab-catalogo";
 
-$pesquisa = isset($_GET['pesquisa']) ? trim($_GET['pesquisa']) : '';
-$categoria_filtro = isset($_GET['categoria_filtro']) ? trim($_GET['categoria_filtro']) : '';
-
-if (!empty($pesquisa) || !empty($categoria_filtro)) {
-    $aba_ativa = "tab-catalogo";
-    $id_usuario = $_SESSION['usuario_id'];
-    $aba_ativa = "tab-catalogo";
-    $mensagem_toast = "";
-}
-
-$sql_cat = "SELECT i.*, c.Nome as nome_categoria FROM Item i LEFT JOIN Categoria c ON i.id_cat = c.id_cat WHERE 1=1";
-$params = [];
-$types = "";
-
-if (!empty($pesquisa)) {
-    $sql_cat .= " AND (i.Nome LIKE ? OR i.Descricao_Item LIKE ?)";
-    $searchParam = "%" . $pesquisa . "%";
-    $params[] = $searchParam;
-    $params[] = $searchParam;
-    $types .= "ss";
-}
-
-if (!empty($categoria_filtro)) {
-    $sql_cat .= " AND i.id_cat = ?";
-    $params[] = $categoria_filtro;
-    $types .= "i";
-}
-
-$sql_cat .= " ORDER BY i.Nome ASC";
-$stmt_itens = $conn->prepare($sql_cat);
-
-if (!empty($params)) {
-    $stmt_itens->bind_param($types, ...$params);
-}
-$stmt_itens->execute();
-$resultado_itens = $stmt_itens->get_result();
+$sql_cat = "SELECT i.*, c.Nome as nome_categoria FROM Item i LEFT JOIN Categoria c ON i.id_cat = c.id_cat ORDER BY i.Nome ASC";
+$resultado_itens = $conn->query($sql_cat);
 
 $categorias_disponiveis = $conn->query("SELECT * FROM Categoria ORDER BY Nome ASC");
+$categorias_array = [];
+if ($categorias_disponiveis) {
+    while ($cat = $categorias_disponiveis->fetch_assoc()) {
+        $categorias_array[] = $cat;
+    }
+}
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
     $aba_ativa = "tab-conta";
@@ -116,9 +88,32 @@ if (isset($_GET['aba'])) {
         
         <div class="search-container" id="global-search-bar">
             <input type="search" id="search-bar" placeholder="Buscar item...">
-            <button type="submit" class="search-btn">
+            <button type="button" class="filter-btn" id="filter-btn" onclick="toggleFilterMenu(event)" title="Filtrar por categoria">
+                <i class="bi bi-funnel"></i>
+                <span class="filter-btn-label">Categorias</span>
+            </button>
+            <button type="button" class="search-btn" onclick="aplicarFiltros()">
                 <i class="bi bi-search"></i> Buscar
             </button>
+
+            <div id="filter-dropdown" class="filter-dropdown">
+                <div class="filter-dropdown-header">
+                    <span>Filtrar por Categoria</span>
+                    <button type="button" class="filter-close-btn" onclick="toggleFilterMenu(event)" aria-label="Fechar">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <div class="filter-options">
+                    <button type="button" class="filter-option active" data-cat-id="" onclick="selecionarCategoria('', 'Todas')">
+                        <i class="bi bi-grid"></i> Todas as Categorias
+                    </button>
+                    <?php foreach ($categorias_array as $cat): ?>
+                        <button type="button" class="filter-option" data-cat-id="<?php echo (int)$cat['id_cat']; ?>" onclick="selecionarCategoria('<?php echo (int)$cat['id_cat']; ?>', '<?php echo htmlspecialchars($cat['Nome'], ENT_QUOTES); ?>')">
+                            <i class="bi bi-tag"></i> <?php echo htmlspecialchars($cat['Nome']); ?>
+                        </button>
+                    <?php endforeach; ?>
+                </div>
+            </div>
         </div>
 
         <nav class="main-nav">
@@ -154,27 +149,6 @@ if (isset($_GET['aba'])) {
 
         
 <div id="tab-catalogo" class="spa-tab" style="<?php echo $aba_ativa === 'tab-catalogo' ? 'display: block;' : 'display: none;'; ?>">
-    
-    <form method="GET" action="FECHECKCOMUM.php" style="display: flex; gap: 10px; margin-bottom: 20px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); width: 100%;">
-        <input type="text" name="pesquisa" value="<?php echo htmlspecialchars($pesquisa); ?>" placeholder="Filtrar por nome ou descrição..." style="flex: 2; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem;">
-        
-        <select name="categoria_filtro" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem; background: #fff;">
-            <option value="">Todas as Categorias</option>
-            <?php if ($categorias_disponiveis && $categorias_disponiveis->num_rows > 0): ?>
-                <?php while($cat = $categorias_disponiveis->fetch_assoc()): ?>
-                    <option value="<?php echo $cat['id_cat']; ?>" <?php echo $categoria_filtro == $cat['id_cat'] ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars($cat['Nome']); ?>
-                    </option>
-                <?php endwhile; ?>
-            <?php endif; ?>
-        </select>
-        
-        <button type="submit" style="padding: 10px 20px; background: #0f006d; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Filtrar</button>
-        
-        <?php if(!empty($pesquisa) || !empty($categoria_filtro)): ?>
-            <a href="FECHECKCOMUM.php" style="padding: 10px 20px; background: #6c757d; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600; text-align: center; display: inline-flex; align-items: center;">Limpar</a>
-        <?php endif; ?>
-    </form>
 
     <div class="item-grid">
         <?php if ($resultado_itens && $resultado_itens->num_rows > 0): ?>
@@ -182,9 +156,7 @@ if (isset($_GET['aba'])) {
                 <?php 
                     $quantidade = (int)$item['Qntd']; 
                     $indisponivel = ($quantidade <= 0);
-                    
                     $imagem_nome = trim($item['Imagem'] ?? '');
-                    
                     if (empty($imagem_nome)) {
                         $imagem = 'sem-foto.jpg';
                     } elseif (file_exists($imagem_nome)) {
@@ -194,41 +166,36 @@ if (isset($_GET['aba'])) {
                     } else {
                         $imagem = 'uploads/' . htmlspecialchars($imagem_nome);
                     }
-
                     $nome_completo = htmlspecialchars($item['Nome']);
                     $categoria = htmlspecialchars($item['nome_categoria'] ?? 'Sem Categoria');
                     $descricao = htmlspecialchars($item['Descricao_Item']);
                 ?>
-                
                 <div class="item-card" onclick="openProductModal(this)" 
                      data-id="<?php echo (int)$item['id_item']; ?>"
                      data-name="<?php echo $nome_completo; ?>" 
                      data-img="<?php echo $imagem; ?>" 
                      data-qty="<?php echo $quantidade; ?>" 
-                     data-cat="<?php echo $categoria; ?>" 
+                     data-cat="<?php echo $categoria; ?>"
+                     data-cat-id="<?php echo (int)($item['id_cat'] ?? 0); ?>"
                      data-desc="<?php echo $descricao; ?>"
                      style="cursor: pointer;">
-                     
                     <div class="item-image-container">
                         <img src="<?php echo $imagem; ?>" alt="<?php echo $nome_completo; ?>" style="width: 100%; height: 100%; object-fit: contain;">
                     </div>
-                    
                     <div class="item-info">
                         <strong class="item-name"><?php echo $nome_completo; ?></strong>
                         <span class="item-quantity">Quantidade disponível: <?php echo $quantidade; ?></span>
                     </div>
-                    
                     <?php if ($indisponivel): ?>
-                        <div class="add-to-cart-btn out-of-stock" onclick="event.stopPropagation();">
+                        <div class="add-to-cart-btn out-of-stock" onclick="event.stopPropagation(); openProductModal(this.closest('.item-card'));">
                             <i class="bi bi-x-lg"></i> Indisponível
                         </div>
                     <?php else: ?>
-                        <div class="add-to-cart-btn" onclick="event.stopPropagation(); adicionarAoCarrinho(<?php echo (int)$item['id_item']; ?>);">
+                        <div class="add-to-cart-btn" onclick="event.stopPropagation(); showToast('Item adicionado ao carrinho!', 'success');">
                             <i class="bi bi-plus"></i> Adicionar
                         </div>
                     <?php endif; ?>
                 </div>
-                
             <?php endwhile; ?>
         <?php else: ?>
             <div id="msg-vazia" style="grid-column: 1/-1; text-align: center; padding: 50px 20px; color: #666; width: 100%;">
@@ -245,7 +212,7 @@ if (isset($_GET['aba'])) {
 
     </main>
 
-    <div id="productModal" class="modal-overlay">
+    <div id="productModal" class="modal-overlay" onclick="if(event.target === this) closeModal('productModal')">
         <div class="modal-content large">
             <div class="modal-header-nav" onclick="closeModal('productModal')">
                 <i class="bi bi-arrow-left"></i> Voltar ao Catálogo
@@ -287,7 +254,7 @@ if (isset($_GET['aba'])) {
         </div>
     </div>
 
-    <div id="checkoutModal" class="modal-overlay">
+    <div id="checkoutModal" class="modal-overlay" onclick="if(event.target === this) closeModal('checkoutModal')">
         <div class="modal-content">
             <h3><i class="bi bi-calendar-check"></i> Agendamento do Pedido</h3>
             
@@ -326,7 +293,7 @@ if (isset($_GET['aba'])) {
         </div>
     </div>
 
-    <div id="modalRenovacao" class="modal-overlay">
+    <div id="modalRenovacao" class="modal-overlay" onclick="if(event.target === this) closeModal('modalRenovacao')">
         <div class="modal-content">
             <h3 style="color:#0f006d;"><i class="bi bi-calendar-event"></i> Renovação</h3>
             <p style="margin: 15px 0;">Escolha o novo prazo de devolução desejado:</p>
@@ -374,8 +341,62 @@ if (isset($_GET['aba'])) {
             }, 3500); 
         }
 
-        function adicionarAoCarrinho(idItem) {
-            showToast('Item adicionado ao carrinho!', 'success');
+        let categoriaAtiva = '';
+
+        function toggleFilterMenu(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('filter-dropdown');
+            dropdown.classList.toggle('open');
+        }
+
+        function selecionarCategoria(catId, catNome) {
+            categoriaAtiva = catId;
+            document.querySelectorAll('.filter-option').forEach(opt => {
+                opt.classList.toggle('active', opt.getAttribute('data-cat-id') === catId);
+            });
+            const filterBtn = document.getElementById('filter-btn');
+            if (filterBtn) {
+                filterBtn.classList.toggle('has-filter', catId !== '');
+                const label = filterBtn.querySelector('.filter-btn-label');
+                if (label) label.textContent = catId === '' ? 'Categorias' : catNome;
+            }
+            aplicarFiltros();
+            document.getElementById('filter-dropdown').classList.remove('open');
+        }
+
+        function aplicarFiltros() {
+            const inputBusca = document.getElementById('search-bar');
+            const termo = inputBusca ? inputBusca.value.toLowerCase().trim() : '';
+            const cards = document.querySelectorAll('.item-card');
+            let encontrou = false;
+
+            cards.forEach(card => {
+                const nome = (card.getAttribute('data-name') || '').toLowerCase();
+                const catId = String(card.getAttribute('data-cat-id') || '');
+                const matchTexto = !termo || nome.startsWith(termo);
+                const matchCat = !categoriaAtiva || catId === String(categoriaAtiva);
+
+                if (matchTexto && matchCat) {
+                    card.style.display = 'flex';
+                    encontrou = true;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            const grid = document.querySelector('.item-grid');
+            let msg = document.getElementById('msg-vazia');
+            if (!encontrou) {
+                if (!msg && grid) {
+                    msg = document.createElement('p');
+                    msg.id = 'msg-vazia';
+                    msg.style.cssText = 'grid-column: 1/-1; text-align: center; padding: 40px; color: #666;';
+                    msg.innerHTML = '<i class="bi bi-search" style="font-size: 2rem; display:block;"></i> Nenhum item encontrado.';
+                    grid.appendChild(msg);
+                }
+            } else if (msg) {
+                msg.remove();
+            }
         }
 
         function switchTab(tabId, titleText, navId) {
@@ -404,8 +425,17 @@ if (isset($_GET['aba'])) {
         }
 
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
+        
         window.onclick = function(e) {
-            if (e.target.classList.contains('modal-overlay')) e.target.style.display = 'none';
+            if (e.target.classList.contains('modal-overlay')) {
+                e.target.style.display = 'none';
+            }
+            
+            const dropdown = document.getElementById('filter-dropdown');
+            const filterBtn = document.getElementById('filter-btn');
+            if (dropdown && filterBtn && dropdown.classList.contains('open') && !dropdown.contains(e.target) && !filterBtn.contains(e.target)) {
+                dropdown.classList.remove('open');
+            }
         }
 
         function openProductModal(el) {
@@ -516,35 +546,11 @@ if (isset($_GET['aba'])) {
         document.addEventListener('DOMContentLoaded', function() {
             const inputBusca = document.getElementById('search-bar');
             if (inputBusca) {
-                inputBusca.addEventListener('input', function() {
-                    const termo = this.value.toLowerCase().trim();
-                    const cards = document.querySelectorAll('.item-card');
-                    let encontrou = false;
-
-                    cards.forEach(card => {
-                        const nome = card.getAttribute('data-name').toLowerCase();
-                        const categoria = card.getAttribute('data-cat').toLowerCase();
-                        
-                        if (nome.includes(termo) || categoria.includes(termo)) {
-                            card.style.display = "flex"; 
-                            encontrou = true;
-                        } else {
-                            card.style.display = "none";
-                        }
-                    });
-
-                    const grid = document.querySelector('.item-grid');
-                    let msg = document.getElementById('msg-vazia');
-                    if (!encontrou) {
-                        if (!msg) {
-                            msg = document.createElement('p');
-                            msg.id = 'msg-vazia';
-                            msg.style.cssText = "grid-column: 1/-1; text-align: center; padding: 40px; color: #666;";
-                            msg.innerHTML = '<i class="bi bi-search" style="font-size: 2rem; display:block;"></i> Nenhum item encontrado.';
-                            grid.appendChild(msg);
-                        }
-                    } else if (msg) {
-                        msg.remove();
+                inputBusca.addEventListener('input', aplicarFiltros);
+                inputBusca.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        aplicarFiltros();
                     }
                 });
             }
