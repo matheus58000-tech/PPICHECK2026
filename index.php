@@ -1,17 +1,14 @@
 <?php
 session_start();
 
-// Captura os erros do Login/Recuperar
 $erro_campo = isset($_SESSION['erro_campo']) ? $_SESSION['erro_campo'] : '';
 $erro_msg = isset($_SESSION['erro_msg']) ? $_SESSION['erro_msg'] : '';
 
-// Captura a LISTA de erros do Cadastro
 $erros_cadastro = isset($_SESSION['erros_cadastro']) ? $_SESSION['erros_cadastro'] : [];
 
 $msg_sucesso = isset($_SESSION['msg_sucesso']) ? $_SESSION['msg_sucesso'] : '';
 $ultimo_tipo_login = isset($_SESSION['ultimo_tipo_login']) ? $_SESSION['ultimo_tipo_login'] : 'padrao';
 
-// Limpa a memória
 unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], $_SESSION['erros_cadastro']);
 ?>
 <!DOCTYPE html>
@@ -64,6 +61,7 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
 
                         <div class="input-group">
                             <input type="password" name="senha" placeholder="Senha" required class="<?php echo ($erro_campo === 'senha') ? 'input-error' : ''; ?>">
+                            <i class="bi bi-eye toggle-password"></i>
                             <?php if($erro_campo === 'senha'): ?>
                                 <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erro_msg; ?></div>
                             <?php endif; ?>
@@ -126,6 +124,7 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
                             </div>
                             <div class="input-group">
                                 <input type="password" name="senha" placeholder="Senha (Mín. 8 caracteres)" required class="<?php echo isset($erros_cadastro['cad_senha']) ? 'input-error' : ''; ?>">
+                                <i class="bi bi-eye toggle-password"></i>
                                 <?php if(isset($erros_cadastro['cad_senha'])): ?>
                                     <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['cad_senha']; ?></div>
                                 <?php endif; ?>
@@ -142,19 +141,8 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
 
                 <div id="view-recover" class="view-section hidden">
                     <h2 class="form-title recover-title">RECUPERAÇÃO DE CONTA</h2>
-                    <p class="recover-text">Insira seu E-mail para receber as instruções de redefinição de senha</p>
-
-                    <form action="recuperar.php" method="POST">
-                        <div class="input-group">
-                            <input type="email" name="email_recuperacao" placeholder="E-mail cadastrado" required class="<?php echo ($erro_campo === 'recuperacao') ? 'input-error' : ''; ?>">
-                            <?php if($erro_campo === 'recuperacao'): ?>
-                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erro_msg; ?></div>
-                            <?php endif; ?>
-                        </div>
-                        <button type="submit" class="btn-primary">ENVIAR INSTRUÇÕES</button>
-                    </form>
-
-                    <div class="links" style="margin-top: 25px;">
+                     <p class="recover-text">Essa função ainda não está disponível no sistema.</p>
+<div class="links" style="margin-top: 25px;">
                         <a href="#" class="link-go-login">Voltar para o Login</a>
                     </div>
                 </div>
@@ -164,7 +152,6 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
     </div>
 
     <script>
-        // NAVEGAÇÃO ENTRE ABAS
         const viewLogin = document.getElementById('view-login');
         const viewRegister = document.getElementById('view-register');
         const viewRecover = document.getElementById('view-recover');
@@ -191,7 +178,6 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
             link.addEventListener('click', (e) => { e.preventDefault(); switchView(viewLogin); });
         });
 
-        // MUDANÇA DE TIPO DE LOGIN
         function setRole(role) {
             roleButtons.forEach(btn => btn.classList.remove('active'));
             const button = document.querySelector(`.role-btn[data-role="${role}"]`);
@@ -202,12 +188,15 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
             if(role === 'padrao') {
                 linkGoRegister.style.display = 'block';
                 loginIdentificador.placeholder = "Matrícula";
+                loginIdentificador.removeAttribute('maxlength');
             } else if(role === 'resp') {
                 linkGoRegister.style.display = 'none';
                 loginIdentificador.placeholder = "CPF";
+                loginIdentificador.setAttribute('maxlength', '14');
             } else if(role === 'admin') {
                 linkGoRegister.style.display = 'none';
                 loginIdentificador.placeholder = "SIAPE";
+                loginIdentificador.removeAttribute('maxlength');
             }
         }
 
@@ -221,14 +210,12 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
         const ultimoTipo = "<?php echo $ultimo_tipo_login; ?>";
         setRole(ultimoTipo);
 
-        // LÓGICA DE MANTER A TELA ABERTA SE DER ERRO
         <?php if(!empty($erros_cadastro)): ?>
             switchView(viewRegister);
         <?php elseif($erro_campo === 'recuperacao'): ?>
             switchView(viewRecover);
         <?php endif; ?>
 
-        // MÁSCARA DE CPF
         const cpfInput = document.getElementById('cpf-input');
         if(cpfInput) {
             cpfInput.addEventListener('input', function(e) {
@@ -240,6 +227,32 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
                 e.target.value = value;
             });
         }
+
+        loginIdentificador.addEventListener('input', function(e) {
+            if (tipoLoginHidden.value === 'resp') {
+                let value = e.target.value.replace(/\D/g, ''); 
+                if (value.length > 11) value = value.slice(0, 11); 
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                e.target.value = value;
+            }
+        });
+
+        document.querySelectorAll('.toggle-password').forEach(icon => {
+            icon.addEventListener('click', function() {
+                const input = this.previousElementSibling;
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    this.classList.remove('bi-eye');
+                    this.classList.add('bi-eye-slash');
+                } else {
+                    input.type = 'password';
+                    this.classList.remove('bi-eye-slash');
+                    this.classList.add('bi-eye');
+                }
+            });
+        });
     </script>
 </body>
 </html>
