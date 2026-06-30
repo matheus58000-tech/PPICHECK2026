@@ -21,7 +21,6 @@ if (isset($_SESSION['sub_aba_ativa'])) {
     unset($_SESSION['sub_aba_ativa']);
 }
 
-
 if (!function_exists('redirectLab')) {
     function redirectLab($aba, $sub_aba) {
         $_SESSION['aba_ativa'] = $aba;
@@ -30,8 +29,6 @@ if (!function_exists('redirectLab')) {
         exit(); 
     }
 }
-
-
 
 $abrir_modal_edit_user = false;
 
@@ -60,10 +57,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
                 $nome = trim($_POST['edit_nome']);
                 $email = trim($_POST['edit_email']);
                 $cpf = trim($_POST['edit_cpf']);
-                $matricula = trim($_POST['edit_matricula']);
-                $siape = trim($_POST['edit_siape']);
                 $tipo = trim($_POST['edit_tipo']);
                 $nova_senha = $_POST['edit_senha'];
+
+                $matricula = ($tipo === 'padrao') ? trim($_POST['edit_matricula']) : null;
+                $siape = ($tipo === 'admin') ? trim($_POST['edit_siape']) : null;
 
                 if (empty($nome) || strlen($nome) < 3) $erros_lab['edit_nome'] = "Mín. 3 letras.";
                 $cpf_limpo = preg_replace('/[^0-9]/', '', $cpf); 
@@ -73,7 +71,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
                 if (count($erros_lab) > 0) {
                     $erros_lab['geral_edit_user'] = "Erro na edição. Verifique os campos preenchidos.";
                     $sub_aba_ativa = "tab-usuarios";
-                    $abrir_modal_edit_user = true; 
+                    $abrir_modal_edit_user = true;
                 } else {
                     if (!empty($nova_senha)) {
                         $hash = password_hash($nova_senha, PASSWORD_DEFAULT);
@@ -99,14 +97,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
                 
                 $dinamico = isset($_POST['add_dinamico']) ? trim($_POST['add_dinamico']) : null;
                 $matricula = ($tipo === 'padrao') ? $dinamico : null;
-                $siape = ($tipo === 'admin' || $tipo === 'resp') ? $dinamico : null;
+                $siape = ($tipo === 'admin') ? $dinamico : null;
 
                 if (empty($nome) || strlen($nome) < 3) $erros_lab['add_nome'] = "Mín. 3 letras.";
                 $cpf_limpo = preg_replace('/[^0-9]/', '', $cpf); 
                 if (empty($cpf_limpo) || strlen($cpf_limpo) !== 11) $erros_lab['add_cpf'] = "Exatos 11 dígitos.";
                 if (empty($tipo)) $erros_lab['add_tipo'] = "Selecione o nível.";
                 elseif ($tipo === 'padrao' && (empty($matricula) || strlen($matricula) !== 10 || !is_numeric($matricula))) $erros_lab['add_dinamico'] = "Exatos 10 números.";
-                elseif (($tipo === 'admin' || $tipo === 'resp') && (empty($siape) || strlen($siape) !== 7 || !is_numeric($siape))) $erros_lab['add_dinamico'] = "Exatos 7 números.";
+                elseif ($tipo === 'admin' && (empty($siape) || strlen($siape) !== 7 || !is_numeric($siape))) $erros_lab['add_dinamico'] = "Exatos 7 números.";
                 
                 if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) $erros_lab['add_email'] = "E-mail inválido.";
                 $data_atual = date("Y-m-d");
@@ -167,7 +165,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_item'])) {
             } else {
                 $imagem = ''; 
                 
-               
                 if (isset($_FILES['add_item_foto']) && $_FILES['add_item_foto']['error'] == 0) {
                     $ext = pathinfo($_FILES['add_item_foto']['name'], PATHINFO_EXTENSION);
                     $imagem = uniqid() . "." . $ext;
@@ -231,7 +228,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_item'])) {
         }
     }
 }
-
 
 $abrir_modal_edit_cat = false;
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_categoria'])) {
@@ -729,6 +725,21 @@ while ($cat = $res_categorias->fetch_assoc()) {
                 <h3>Lista de Utilizadores Cadastrados</h3>
                 <button onclick="switchLabTab('tab-novo-usuario', 'Adicionar Novo Usuário')" class="btn-add-item"><i class="bi bi-person-plus"></i> Adicionar Utilizador</button>
             </div>
+
+            <div class="filter-usuarios-container" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+                <div class="search-box" style="flex: 2; position: relative;">
+                    <i class="bi bi-search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #888;"></i>
+                    <input type="text" id="user-search" placeholder="Buscar usuário por nome ou email..." style="width: 100%; padding: 10px 10px 10px 35px; border: 1px solid #ccc; border-radius: 6px; outline: none;">
+                </div>
+                <div class="filter-box" style="flex: 1;">
+                    <select id="user-status-filter" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; outline: none;">
+                        <option value="todos">Todos os Status</option>
+                        <option value="ativo">Ativos</option>
+                        <option value="bloqueado">Bloqueados</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="table-responsive-wrapper">
                 <table class="stock-table">
                     <thead><tr><th>Nome Completo</th><th>E-mail</th><th>Nível</th><th>Status</th><th>Ações</th></tr></thead>
@@ -752,7 +763,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
                                 'cpf' => $u['CPF'], 'matricula' => $u['Matricula'], 'siape' => $u['SIAPE'], 'tipo' => $u['Tipo_user']
                             ]), ENT_QUOTES, 'UTF-8');
                         ?>
-                            <tr data-user-id="<?php echo $id_u; ?>">
+                            <tr data-user-id="<?php echo $id_u; ?>" data-status="<?php echo $status_u; ?>">
                                 <td><?php echo $nome_u; ?></td>
                                 <td><?php echo $email_u; ?></td>
                                 <td><?php echo $tipo_u; ?></td>
@@ -1083,7 +1094,6 @@ while ($cat = $res_categorias->fetch_assoc()) {
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        
         const searchInput = document.getElementById('estoque-search');
         const categoryFilter = document.getElementById('estoque-category-filter');
         
@@ -1131,9 +1141,65 @@ while ($cat = $res_categorias->fetch_assoc()) {
 
         if (searchInput) searchInput.addEventListener('input', filterEstoque);
         if (categoryFilter) categoryFilter.addEventListener('change', filterEstoque);
+
+        const userSearchInput = document.getElementById('user-search');
+        const userStatusFilter = document.getElementById('user-status-filter');
+        
+        function filterUsuarios() {
+            if (!userSearchInput || !userStatusFilter) return;
+            
+            const searchTerm = userSearchInput.value.toLowerCase().trim();
+            const selectedStatus = userStatusFilter.value.toLowerCase();
+            const rows = document.querySelectorAll('#tab-usuarios .stock-table tbody tr[data-user-id]');
+            
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const userName = row.querySelector('td:nth-child(1)').textContent.toLowerCase();
+                const userEmail = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+                const userStatus = row.getAttribute('data-status');
+                const userId = row.getAttribute('data-user-id');
+                const detailRow = document.getElementById('row-detail-' + userId);
+                
+                const matchesSearch = userName.includes(searchTerm) || userEmail.includes(searchTerm);
+                const matchesStatus = selectedStatus === 'todos' || userStatus === selectedStatus;
+                
+                if (matchesSearch && matchesStatus) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                    if(detailRow) {
+                        detailRow.style.setProperty('display', 'none', 'important');
+                        const icon = row.querySelector('.btn-view-pedidos i');
+                        if(icon) {
+                            icon.classList.remove('bi-dash-lg');
+                            icon.classList.add('bi-plus-lg');
+                        }
+                    }
+                }
+            });
+            
+            let emptyMsgRow = document.getElementById('empty-user-msg');
+            const tbody = document.querySelector('#tab-usuarios .stock-table tbody');
+            
+            if (visibleCount === 0 && rows.length > 0) {
+                if (!emptyMsgRow) {
+                    emptyMsgRow = document.createElement('tr');
+                    emptyMsgRow.id = 'empty-user-msg';
+                    emptyMsgRow.innerHTML = '<td colspan="5" style="text-align:center; padding: 30px; color:#666;"><i class="bi bi-search" style="font-size:2rem; display:block; margin-bottom:10px;"></i>Nenhum utilizador encontrado.</td>';
+                    tbody.appendChild(emptyMsgRow);
+                }
+                emptyMsgRow.style.display = '';
+            } else if (emptyMsgRow) {
+                emptyMsgRow.style.display = 'none';
+            }
+        }
+
+        if (userSearchInput) userSearchInput.addEventListener('input', filterUsuarios);
+        if (userStatusFilter) userStatusFilter.addEventListener('change', filterUsuarios);
     });
 
-   
     function switchLabFilter(targetId, btn) {
         document.querySelectorAll('#tab-pedidos-lab .btn-filter').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
@@ -1141,7 +1207,6 @@ while ($cat = $res_categorias->fetch_assoc()) {
         document.getElementById(targetId).style.display = 'block';
     }
 
-   
     function aprovarPedido(id) { 
         if(confirm('Aprovar pedido #' + id + '?')) showToast('Pedido Aprovado!', 'success'); 
     }
@@ -1161,7 +1226,6 @@ while ($cat = $res_categorias->fetch_assoc()) {
         }
     }
 
-    
     function abrirDevolucao(idPedido, usuario, data) {
         document.getElementById('dev-pedido-id').innerText = `Pedido #${idPedido}`;
         document.getElementById('dev-pedido-user').innerText = usuario;
@@ -1189,19 +1253,16 @@ while ($cat = $res_categorias->fetch_assoc()) {
         switchLabTab('tab-pedidos-lab', 'Gerenciamento de Pedidos');
     }
 
-    
     function togglePedidos(btn, userId) {
         const rowDetail = document.getElementById('row-detail-' + userId);
         const icon = btn.querySelector('i');
 
         if (!rowDetail) {
-            console.error('Row não encontrada: row-detail-' + userId);
             return;
         }
 
         const estaAberto = rowDetail.classList.contains('row-aberta');
 
-       
         document.querySelectorAll('.row-detalhes').forEach(el => {
             el.classList.remove('row-aberta');
             el.style.setProperty('display', 'none', 'important');
@@ -1211,7 +1272,6 @@ while ($cat = $res_categorias->fetch_assoc()) {
             ic.classList.add('bi-plus-lg');
         });
 
-        
         if (!estaAberto) {
             rowDetail.classList.add('row-aberta');
             rowDetail.style.setProperty('display', 'table-row', 'important');
@@ -1222,7 +1282,6 @@ while ($cat = $res_categorias->fetch_assoc()) {
         }
     }
 
-   
     function enviarAcaoDinamicamente(nomeAcao, valorAcao, nomeId, valorId) {
         const form = document.createElement('form');
         form.method = 'POST';
@@ -1260,7 +1319,6 @@ while ($cat = $res_categorias->fetch_assoc()) {
         enviarAcaoDinamicamente('acao_categoria', acao, 'id_alvo_cat', id);
     }
 
-   
     function abrirModalEditUser(btn) {
         try {
             const rawData = btn.getAttribute('data-info');
@@ -1274,7 +1332,6 @@ while ($cat = $res_categorias->fetch_assoc()) {
             document.getElementById('edit_tipo').value = dados.tipo;
             document.getElementById('modalEditUser').style.display = 'flex';
         } catch(e) {
-            console.error("Erro ao ler JSON de utilizador:", e);
             alert("Não foi possível carregar os dados para edição.");
         }
     }
@@ -1289,9 +1346,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
             document.getElementById('edit_item_descricao').value = dados.Descricao_Item;
             document.getElementById('edit_item_qntd').value = dados.Qntd;
             document.getElementById('modalEditItem').style.display = 'flex';
-        } catch(e) {
-            console.error("Erro ao ler JSON de item:", e);
-        }
+        } catch(e) { }
     }
 
     function abrirModalEditCategoria(btn) {
@@ -1302,12 +1357,9 @@ while ($cat = $res_categorias->fetch_assoc()) {
             document.getElementById('edit_cat_nome').value = dados.Nome;
             document.getElementById('edit_cat_desc').value = dados.Descricao_cat;
             document.getElementById('modalEditCategoria').style.display = 'flex';
-        } catch(e) {
-            console.error("Erro ao ler JSON de categoria:", e);
-        }
+        } catch(e) { }
     }
 
-   
     window.addEventListener('DOMContentLoaded', () => {
         const modaisParaMover = ['modal-recusa', 'modalEditCategoria', 'modalEditItem', 'modalEditUser'];
         modaisParaMover.forEach(id => {
