@@ -1,6 +1,4 @@
-/* ========================================================== */
-/* RESET & VARIÁVEIS GERAIS                                   */
-/* ========================================================== */
+
 * {
     margin: 0;
     padding: 0;
@@ -24,9 +22,6 @@ body {
     flex-direction: column;
 }
 
-/* ========================================================== */
-/* HEADER E NAVEGAÇÃO                                         */
-/* ========================================================== */
 .main-header {
     width: 95%; 
     max-width: 1400px;
@@ -119,10 +114,6 @@ body {
 .dropdown-content a:hover { background-color: rgba(15, 0, 109, 0.05); color: var(--primary-color); }
 .nav-dropdown:hover .dropdown-content { visibility: visible; opacity: 1; transform: translateY(0); }
 
-
-/* ========================================================== */
-/* ESTRUTURAS PRINCIPAIS (MAIN VIEWS)                         */
-/* ========================================================== */
 .main-view {
     width: 95%;
     max-width: 1400px;
@@ -133,10 +124,6 @@ body {
     z-index: 1;
 }
 
-/* ========================================================== */
-/* 1. CATÁLOGO                                                */
-/* ========================================================== */
-.catalog-main-container h2 { font-family: 'Archivo Black', sans-serif; font-size: 2.2rem; color: #000; text-transform: uppercase; letter-spacing: -0.5px; margin-bottom: 1.5rem; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; }
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem; }
 .item-card { background-color: #fff; border: 1px solid #e0e0e0; border-radius: 16px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); overflow: hidden; transition: transform 0.2s, box-shadow 0.2s; display: flex; flex-direction: column; cursor: pointer; }
 .item-card:hover { transform: translateY(-5px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
@@ -178,7 +165,7 @@ body {
 /* ========================================================== */
 /* 3. PEDIDOS                                                 */
 /* ========================================================== */
-.page-header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px; }
+.page-header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid #e0e0e0; padding-bottom: 15px; }
 .page-header-row h2 { font-family: 'Archivo Black', sans-serif; font-size: 2.2rem; color: #000; text-transform: uppercase; letter-spacing: -0.5px; margin: 0;}
 .filter-container { display: flex; align-items: center; }
 .filter-actions { display: flex; align-items: center; gap: 10px; }
@@ -237,8 +224,7 @@ body {
 /* ========================================================== */
 /* 4. CONTA                                                   */
 /* ========================================================== */
-.conta-main-container { max-width: 700px; }
-.conta-main-container h2 { font-family: 'Archivo Black', sans-serif; font-size: 2.2rem; color: #000; text-transform: uppercase; letter-spacing: -0.5px; margin-bottom: 1.5rem; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; }
+
 .form-card { background-color: #fff; border: 1px solid #e0e0e0; border-radius: 16px; padding: 2.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 .divider { border: none; border-top: 1px solid #f0f0f0; margin: 2rem 0; }
 .btn-save { width: 100%; padding: 14px; background-color: var(--primary-color); font-size: 1.1rem; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 1rem; transition: background-color 0.2s, transform 0.1s; }
