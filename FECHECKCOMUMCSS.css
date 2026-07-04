@@ -1,13 +1,10 @@
-/* --- RESET BÁSICO E GERAL --- */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; min-height: 100vh; display: flex; flex-direction: column; }
 :root { --primary-color: #0f006d; --secondary-bg: #ffffff; --text-color: #333; --link-color: #555; --hover-color: #0a004a; }
 
-/* --- CABEÇALHO FLUTUANTE PREMIUM --- */
-.main-header { width: 90%; max-width: 1200px; margin: 1rem auto; border-radius: 16px; background-color: var(--secondary-bg); padding: 1rem 2.5rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 0 25px rgba(15, 0, 109, 0.15); position: sticky; top: 1rem; z-index: 1000; }
+.main-header { width: 95%; max-width: 1400px; margin: 1rem auto; border-radius: 16px; background-color: var(--secondary-bg); padding: 1rem 2.5rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 0 25px rgba(15, 0, 109, 0.15); position: sticky; top: 1rem; z-index: 1000; }
 .logo-container-header .logo-header { max-width: 150px; height: auto; display: block; }
 
-/* Barra de Busca */
 .search-container { width: 100%; max-width: 480px; margin: 0 2rem; display: flex; border-radius: 12px; overflow: visible; border: 1px solid #ccc; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); position: relative; background: #fff; }
 .search-container input { flex-grow: 1; border: none; padding: 12px 15px; font-size: 1rem; outline: none; border-radius: 12px 0 0 12px; min-width: 0; }
 .filter-btn { border: none; border-left: 1px solid #ddd; background-color: #f8f9fa; color: #444; padding: 0 14px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 0.85rem; }
@@ -17,7 +14,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .search-btn { border: none; background-color: var(--primary-color); color: white; padding: 0 20px; font-weight: 600; cursor: pointer; transition: 0.2s; border-radius: 0 12px 12px 0; }
 .search-btn:hover { background-color: var(--hover-color); }
 
-/* Popup de filtro por categoria */
 .filter-dropdown { display: none; position: absolute; top: calc(100% + 8px); right: 0; background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); width: 260px; z-index: 1100; overflow: hidden; animation: filterSlideIn 0.2s ease; }
 .filter-dropdown.open { display: block; }
 @keyframes filterSlideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
@@ -31,7 +27,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .filter-option.active { background: var(--primary-color); color: #fff; font-weight: 600; }
 .filter-option i { font-size: 0.95rem; opacity: 0.85; }
 
-/* Navegação Pílula */
 .main-nav { display: flex; align-items: center; gap: 0.5rem; }
 .nav-btn, .logout-btn { display: flex; align-items: center; max-width: 45px; height: 45px; border-radius: 12px; color: var(--link-color); text-decoration: none; overflow: hidden; transition: max-width 0.35s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.3s, color 0.3s; }
 .nav-btn i, .logout-btn i { min-width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; }
@@ -46,13 +41,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .logout-btn:hover { max-width: 120px; background-color: rgba(220, 53, 69, 0.1); color: #dc3545; }
 .logout-btn:hover .nav-text { opacity: 1; transition-delay: 0.1s; }
 
-/* --- CONTEÚDO PRINCIPAL (SPA) --- */
-.app-main-container { width: 90%; max-width: 1200px; margin: 2rem auto; padding: 0 2.5rem; flex-grow: 1; position: relative; }
+.app-main-container { width: 95%; max-width: 1400px; margin: 2rem auto; padding: 0 2.5rem; flex-grow: 1; position: relative; }
 .page-title-container { display: flex; align-items: center; margin-bottom: 1.5rem; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
 .page-title-container h1 { font-family: 'Archivo Black', sans-serif; font-size: 2.2rem; color: #000; text-transform: uppercase; letter-spacing: -0.5px; margin: 0; }
-.content-area, .form-card { background-color: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+.content-area, .form-card { background-color: white; padding: 40px; border-radius: 16px; box-shadow: 1px 12px rgba(0,0,0,0.05); }
 
-/* --- 1. CATÁLOGO --- */
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem; }
 .item-card { background-color: white; border: 1px solid #e0e0e0; border-radius: 16px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
 .item-card:hover { transform: translateY(-5px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
@@ -65,7 +58,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .add-to-cart-btn:hover { background-color: var(--hover-color); }
 .add-to-cart-btn.out-of-stock { background-color: #dc3545; cursor: not-allowed; }
 
-/* --- 2. CARRINHO --- */
 .cart-list { background-color: white; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; }
 .cart-item { display: flex; align-items: center; padding: 1.5rem; border-bottom: 1px solid #eee; gap: 1.5rem; }
 .cart-item:last-child { border-bottom: none; }
@@ -85,7 +77,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .checkout-btn { background-color: var(--primary-color); color: white; border: none; padding: 12px 25px; border-radius: 8px; font-size: 1.05rem; font-weight: bold; cursor: pointer; display: flex; gap: 10px; transition: 0.2s; }
 .checkout-btn:hover { background-color: var(--hover-color); transform: translateY(-2px); }
 
-/* --- 3. PEDIDOS DO ALUNO --- */
 .filter-actions { display: flex; align-items: center; gap: 10px; }
 .filter-label { font-size: 0.9rem; color: #666; font-weight: 500; }
 .filter-select { padding: 10px 12px; border: 1px solid #ccc; border-radius: 8px; outline: none; transition: 0.2s; min-width: 160px; font-weight: 600; }
@@ -128,7 +119,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .step.current .step-label { color: var(--primary-color); font-weight: bold; }
 .step.cancelled .step-icon { background-color: #dc3545; border-color: #dc3545; color: white; }
 
-/* --- 4. CONTA --- */
 .input-group { margin-bottom: 1.25rem; text-align: left; }
 .input-group label { display: block; font-weight: 600; margin-bottom: 6px; color: #444; }
 .input-group input { width: 100%; padding: 12px 15px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; transition: 0.2s; outline: none; }
@@ -139,17 +129,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .btn-save:hover { background-color: var(--hover-color); }
 .aviso-erro { color: #dc3545; text-align: center; font-weight: bold; margin-bottom: 15px; }
 
-/* --- 5. MODAIS PADRÃO --- */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); backdrop-filter: blur(2px); z-index: 2000; justify-content: center; align-items: center; }
 .modal-content { background-color: white; padding: 2rem; border-radius: 16px; width: 90%; max-width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; animation: zoomIn 0.3s ease; }
 .modal-content.large { max-width: 850px; padding: 40px; text-align: left; }
 @keyframes zoomIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
-/* Botão Voltar */
 .modal-header-nav { color: #666; font-size: 0.95rem; cursor: pointer; margin-bottom: 25px; display: inline-flex; align-items: center; gap: 8px; transition: color 0.2s; }
 .modal-header-nav:hover { color: var(--primary-color); }
 
-/* Layout Dividido (Imagem e Info) */
 .modal-body-grid { display: flex; gap: 40px; }
 .modal-img-col { flex: 1; display: flex; justify-content: center; align-items: center; }
 .modal-img-col img { max-width: 100%; max-height: 300px; object-fit: contain; }
@@ -160,12 +147,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .text-green { color: #10ac84; font-weight: bold; }
 .text-red { color: #dc3545; font-weight: bold; }
 
-/* Descrição */
 .modal-divider { border: none; border-top: 1px solid #eee; margin: 20px 0; }
 .modal-subtitle { font-size: 1.2rem; color: #222; font-weight: bold; margin-bottom: 10px; }
 .modal-description { color: #666; line-height: 1.5; font-size: 0.95rem; margin-bottom: 30px; }
 
-/* Botões e Input de Quantidade */
 .modal-actions-row { display: flex; gap: 15px; margin-top: auto; align-items: flex-end; }
 .qty-group { display: flex; flex-direction: column; gap: 8px; }
 .qty-group label { font-size: 0.9rem; font-weight: bold; color: #333; }
@@ -180,12 +165,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .btn-cancel { background-color: #e0e0e0; color: #333; height: 48px; padding: 0 25px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; flex: 1; transition: 0.2s; }
 .btn-cancel:hover { background-color: #ccc; }
 
-/* Botões de Agendamento */
 .days-options { display: flex; gap: 10px; justify-content: center; margin-bottom: 1.5rem; }
 .day-btn { flex: 1; padding: 10px; border: 1px solid #ccc; background: white; border-radius: 8px; font-weight: bold; cursor: pointer; }
 .day-btn.selected { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
 
-/* --- RESPONSIVIDADE --- */
 @media (max-width: 1024px) {
     .main-header { flex-direction: column; padding: 1rem; width: 90%; gap: 1rem; }
     .search-container { max-width: 100%; margin: 10px 0; }
@@ -202,38 +185,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
     .timeline-wrapper::before { top: 14px; }
 }
 
-/* ========================================================== */
-/* MÓDULO DE NOTIFICAÇÕES TOAST                               */
-/* ========================================================== */
-#toast-container {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 9999;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.custom-toast {
-    background-color: #333;
-    color: #fff;
-    padding: 15px 25px;
-    border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-weight: 600;
-    font-size: 0.95rem;
-    transform: translateX(120%);
-    transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.custom-toast.show {
-    transform: translateX(0);
-}
-
+#toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+.custom-toast { background-color: #333; color: #fff; padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); display: flex; align-items: center; gap: 12px; font-weight: 600; font-size: 0.95rem; transform: translateX(120%); transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1); }
+.custom-toast.show { transform: translateX(0); }
 .custom-toast.success { background-color: #10ac84; }
 .custom-toast.error { background-color: #dc3545; }
 .custom-toast.warning { background-color: #ffc107; color: #333; }
