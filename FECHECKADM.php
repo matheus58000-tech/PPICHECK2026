@@ -38,9 +38,6 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
     <link rel="stylesheet" href="FECHECKADMCSS.css?v=<?php echo time(); ?>"> 
 
     <style>
-        /* ============================================================== */
-        /* MÁGICA DO MENU: Mantém o Dropdown aberto por um tempinho       */
-        /* ============================================================== */
         .main-nav .nav-dropdown .dropdown-content {
             display: flex !important; /* Garante que existe no DOM */
             flex-direction: column;
@@ -141,8 +138,10 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         </nav>
     </header>
 
-    <main id="view-catalogo" class="main-view catalog-main-container">
-        <h2>Catálogo de Itens</h2>
+  <main id="view-catalogo" class="main-view catalog-main-container">
+        <div class="page-header-row">
+            <h2>Catálogo de Itens</h2>
+        </div>
         <div class="item-grid">
             <?php
             $sql = "SELECT i.*, c.Nome as nome_categoria 
@@ -304,7 +303,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
     <div id="toast-container"></div>
 
     <script>
-        // ================= LÓGICA TOAST =================
+      
         function showToast(msg, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
