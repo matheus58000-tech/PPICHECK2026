@@ -10,6 +10,22 @@ $cpf_exibicao = htmlspecialchars($dados_usuario['CPF'] ?? '');
 $matricula_exibicao = htmlspecialchars($dados_usuario['Matricula'] ?? '');
 $email_exibicao = htmlspecialchars($dados_usuario['Email'] ?? '');
 $status_exibicao = $dados_usuario['status'] ?? 'ativo';
+
+// Resgata mensagens da Sessão que vieram do FECHECKCOMUM.php
+$toast_script = "";
+if (isset($_SESSION['msg_erro'])) {
+    $msg = addslashes($_SESSION['msg_erro']);
+    $toast_script = "showToast('{$msg}', 'error');";
+    unset($_SESSION['msg_erro']);
+} elseif (isset($_SESSION['msg_sucesso'])) {
+    $msg = addslashes($_SESSION['msg_sucesso']);
+    $toast_script = "showToast('{$msg}', 'success');";
+    unset($_SESSION['msg_sucesso']);
+} elseif (isset($_SESSION['msg_warning'])) {
+    $msg = addslashes($_SESSION['msg_warning']);
+    $toast_script = "showToast('{$msg}', 'warning');";
+    unset($_SESSION['msg_warning']);
+}
 ?>
 
 <style>
@@ -20,7 +36,7 @@ $status_exibicao = $dados_usuario['status'] ?? 'ativo';
     .account-actions { display: flex; gap: 15px; margin-top: 15px; width: 100%; }
     
     .btn-acc-cancel { 
-        flex: 1; /* Faz o botão esticar */
+        flex: 1; 
         justify-content: center; 
         background-color: #e0e0e0; 
         color: #333; 
@@ -38,7 +54,7 @@ $status_exibicao = $dados_usuario['status'] ?? 'ativo';
     .btn-acc-cancel:hover { background-color: #ccc; }
     
     .btn-acc-save { 
-        flex: 1; /* Faz o botão esticar */
+        flex: 1; 
         justify-content: center; 
         background-color: #0f006d; 
         color: white; 
@@ -72,6 +88,7 @@ $status_exibicao = $dados_usuario['status'] ?? 'ativo';
             <?php endif; ?>
 
             <div class="account-grid">
+                <!-- COLUNA ESQUERDA (Inalterável) -->
                 <div class="account-column">
                     <div class="readonly-notice">
                         <strong><i class="bi bi-info-circle"></i> Informações Fixas</strong><br>
@@ -94,6 +111,7 @@ $status_exibicao = $dados_usuario['status'] ?? 'ativo';
                     </div>
                 </div>
 
+                <!-- COLUNA DIREITA (Editável) -->
                 <div class="account-column">
                     <div class="input-group">
                         <label>Email</label>
@@ -115,6 +133,7 @@ $status_exibicao = $dados_usuario['status'] ?? 'ativo';
                         <input type="password" name="confirma_senha" placeholder="Repita a nova senha">
                     </div>
 
+                    <!-- BOTÕES ALINHADOS -->
                     <div class="account-actions">
                         <button type="reset" class="btn-acc-cancel"><i class="bi bi-x-circle"></i> Cancelar</button>
                         <button type="submit" class="btn-acc-save"><i class="bi bi-save"></i> Salvar Alterações</button>
@@ -125,3 +144,13 @@ $status_exibicao = $dados_usuario['status'] ?? 'ativo';
         </form>
     </div> 
 </div>
+
+<?php if (!empty($toast_script)): ?>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            <?php echo $toast_script; ?>
+        }, 300);
+    });
+</script>
+<?php endif; ?>
