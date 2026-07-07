@@ -28,7 +28,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Check - Sistema Integrado</title>
+    <title>Painel do administrador - CHECK</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -138,7 +138,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         </nav>
     </header>
 
-  <main id="view-catalogo" class="main-view catalog-main-container">
+<main id="view-catalogo" class="main-view catalog-main-container">
         <div class="page-header-row">
             <h2>Catálogo de Itens</h2>
         </div>
@@ -155,7 +155,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                 while($item = $result->fetch_assoc()): 
                     
                     $img_db = $item['Imagem'];
-                    $img_final = 'LOGOCHECKSEMDESCR.jpg'; 
+                    $img_final = 'item_sem_foto.png'; 
 
                     if (!empty($img_db)) {
                         if (strpos($img_db, 'uploads/') === false && $img_db !== 'LOGOCHECKSEMDESCR.jpg') {
