@@ -23,12 +23,12 @@ if ($categorias_disponiveis) {
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
     $aba_ativa = "tab-conta";
-    $novo_email = $_POST['email'];
+    $novo_email = trim($_POST['email']);
     $senha_atual = $_POST['senha_atual'];
     $nova_senha = $_POST['nova_senha'];
     $confirma_senha = $_POST['confirma_senha'];
 
-    $stmt_check = $conn->prepare("SELECT Senha FROM Usuarios WHERE id_user = ?");
+    $stmt_check = $conn->prepare("SELECT Email, Senha FROM Usuarios WHERE id_user = ?");
     $stmt_check->bind_param("i", $id_usuario);
     $stmt_check->execute();
     $user_db = $stmt_check->get_result()->fetch_assoc();
@@ -41,19 +41,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
                 $_SESSION['msg_erro'] = "A senha atual está incorreta.";
             } else {
                 $senha_hash = password_hash($nova_senha, PASSWORD_DEFAULT);
-                $stmt_up = $conn->prepare("UPDATE Usuarios SET Email = ?, Senha = ? WHERE id_user = ?");
-                $stmt_up->bind_param("ssi", $novo_email, $senha_hash, $id_usuario);
-                $stmt_up->execute();
-                $_SESSION['msg_sucesso'] = "Dados updated com sucesso!";
+                $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ?, Senha = ? WHERE id_user = ?");
+                $stmt_upd->bind_param("ssi", $novo_email, $senha_hash, $id_usuario);
+                $stmt_upd->execute();
+                $_SESSION['msg_sucesso'] = "Dados atualizados com sucesso!";
             }
         } else {
-            $stmt_up = $conn->prepare("UPDATE Usuarios SET Email = ? WHERE id_user = ?");
-            $stmt_up->bind_param("si", $novo_email, $id_usuario);
-            $stmt_up->execute();
-            $_SESSION['msg_sucesso'] = "E-mail updated com sucesso!";
+            if ($novo_email !== $user_db['Email']) {
+                $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ? WHERE id_user = ?");
+                $stmt_upd->bind_param("si", $novo_email, $id_usuario);
+                $stmt_upd->execute();
+                $_SESSION['msg_sucesso'] = "E-mail atualizado com sucesso!";
+            } else {
+                $_SESSION['msg_warning'] = "Nenhuma alteração foi feita.";
+            }
         }
     } catch (Exception $e) {
-        $_SESSION['msg_erro'] = "Erro ao atualizar os dados.";
+        $_SESSION['msg_erro'] = "Erro: O E-mail digitado já está em uso.";
     }
     header("Location: FECHECKCOMUM.php?aba=tab-conta");
     exit();
@@ -68,7 +72,7 @@ if (isset($_GET['aba'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel do Aluno - Check</title>
+    <title>Painel do Aluno - CHECK</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -76,8 +80,6 @@ if (isset($_GET['aba'])) {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
     <link rel="stylesheet" href="FECHECKCOMUMCSS.css?v=<?php echo time(); ?>"> 
-    
-    <?php if (isset($mensagem_toast) && !empty($mensagem_toast)) { echo $mensagem_toast; } ?>
 </head>
 <body>
 
@@ -146,65 +148,66 @@ if (isset($_GET['aba'])) {
         <div class="page-title-container">
             <h1 id="page-main-title">Catálogo de Itens</h1>
         </div>
-
         
-<div id="tab-catalogo" class="spa-tab" style="<?php echo $aba_ativa === 'tab-catalogo' ? 'display: block;' : 'display: none;'; ?>">
-
-    <div class="item-grid">
-        <?php if ($resultado_itens && $resultado_itens->num_rows > 0): ?>
-            <?php while($item = $resultado_itens->fetch_assoc()): ?>
-                <?php 
-                    $quantidade = (int)$item['Qntd']; 
-                    $indisponivel = ($quantidade <= 0);
-                    $imagem_nome = trim($item['Imagem'] ?? '');
-                    if (empty($imagem_nome)) {
-                        $imagem = 'sem-foto.jpg';
-                    } elseif (file_exists($imagem_nome)) {
-                        $imagem = htmlspecialchars($imagem_nome);
-                    } elseif (file_exists('uploads/' . $imagem_nome)) {
-                        $imagem = 'uploads/' . htmlspecialchars($imagem_nome);
-                    } else {
-                        $imagem = 'uploads/' . htmlspecialchars($imagem_nome);
-                    }
-                    $nome_completo = htmlspecialchars($item['Nome']);
-                    $categoria = htmlspecialchars($item['nome_categoria'] ?? 'Sem Categoria');
-                    $descricao = htmlspecialchars($item['Descricao_Item']);
-                ?>
-                <div class="item-card" onclick="openProductModal(this)" 
-                     data-id="<?php echo (int)$item['id_item']; ?>"
-                     data-name="<?php echo $nome_completo; ?>" 
-                     data-img="<?php echo $imagem; ?>" 
-                     data-qty="<?php echo $quantidade; ?>" 
-                     data-cat="<?php echo $categoria; ?>"
-                     data-cat-id="<?php echo (int)($item['id_cat'] ?? 0); ?>"
-                     data-desc="<?php echo $descricao; ?>"
-                     style="cursor: pointer;">
-                    <div class="item-image-container">
-                        <img src="<?php echo $imagem; ?>" alt="<?php echo $nome_completo; ?>" style="width: 100%; height: 100%; object-fit: contain;">
-                    </div>
-                    <div class="item-info">
-                        <strong class="item-name"><?php echo $nome_completo; ?></strong>
-                        <span class="item-quantity">Quantidade disponível: <?php echo $quantidade; ?></span>
-                    </div>
-                    <?php if ($indisponivel): ?>
-                        <div class="add-to-cart-btn out-of-stock" onclick="event.stopPropagation(); openProductModal(this.closest('.item-card'));">
-                            <i class="bi bi-x-lg"></i> Indisponível
+        <div id="tab-catalogo" class="spa-tab" style="<?php echo $aba_ativa === 'tab-catalogo' ? 'display: block;' : 'display: none;'; ?>">
+            <div class="item-grid">
+                <?php if ($resultado_itens && $resultado_itens->num_rows > 0): ?>
+                    <?php while($item = $resultado_itens->fetch_assoc()): ?>
+                        <?php 
+                            $quantidade = (int)$item['Qntd']; 
+                            $indisponivel = ($quantidade <= 0);
+                            $imagem_nome = trim($item['Imagem'] ?? '');
+                            
+                            // Correção da imagem padrão do catálogo
+                            if (empty($imagem_nome)) {
+                                $imagem = 'LOGOCHECKSEMDESCR.jpg';
+                            } elseif (file_exists($imagem_nome)) {
+                                $imagem = htmlspecialchars($imagem_nome);
+                            } elseif (file_exists('uploads/' . $imagem_nome)) {
+                                $imagem = 'uploads/' . htmlspecialchars($imagem_nome);
+                            } else {
+                                $imagem = 'uploads/' . htmlspecialchars($imagem_nome);
+                            }
+                            
+                            $nome_completo = htmlspecialchars($item['Nome']);
+                            $categoria = htmlspecialchars($item['nome_categoria'] ?? 'Sem Categoria');
+                            $descricao = htmlspecialchars($item['Descricao_Item']);
+                        ?>
+                        <div class="item-card" onclick="openProductModal(this)" 
+                             data-id="<?php echo (int)$item['id_item']; ?>"
+                             data-name="<?php echo $nome_completo; ?>" 
+                             data-img="<?php echo $imagem; ?>" 
+                             data-qty="<?php echo $quantidade; ?>" 
+                             data-cat="<?php echo $categoria; ?>"
+                             data-cat-id="<?php echo (int)($item['id_cat'] ?? 0); ?>"
+                             data-desc="<?php echo $descricao; ?>"
+                             style="cursor: pointer;">
+                            <div class="item-image-container">
+                                <img src="<?php echo $imagem; ?>" alt="<?php echo $nome_completo; ?>" style="width: 100%; height: 100%; object-fit: contain;">
+                            </div>
+                            <div class="item-info">
+                                <strong class="item-name"><?php echo $nome_completo; ?></strong>
+                                <span class="item-quantity">Quantidade disponível: <?php echo $quantidade; ?></span>
+                            </div>
+                            <?php if ($indisponivel): ?>
+                                <div class="add-to-cart-btn out-of-stock" onclick="event.stopPropagation(); openProductModal(this.closest('.item-card'));">
+                                    <i class="bi bi-x-lg"></i> Indisponível
+                                </div>
+                            <?php else: ?>
+                                <div class="add-to-cart-btn" onclick="event.stopPropagation(); showToast('Item adicionado ao carrinho!', 'success');">
+                                    <i class="bi bi-plus"></i> Adicionar
+                                </div>
+                            <?php endif; ?>
                         </div>
-                    <?php else: ?>
-                        <div class="add-to-cart-btn" onclick="event.stopPropagation(); showToast('Item adicionado ao carrinho!', 'success');">
-                            <i class="bi bi-plus"></i> Adicionar
-                        </div>
-                    <?php endif; ?>
-                </div>
-            <?php endwhile; ?>
-        <?php else: ?>
-            <div id="msg-vazia" style="grid-column: 1/-1; text-align: center; padding: 50px 20px; color: #666; width: 100%;">
-                <i class="bi bi-search" style="font-size: 2.5rem; display: block; margin-bottom: 10px; color: #ccc;"></i>
-                Nenhum item corresponde aos critérios de filtragem.
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <div id="msg-vazia" style="grid-column: 1/-1; text-align: center; padding: 50px 20px; color: #666; width: 100%;">
+                        <i class="bi bi-search" style="font-size: 2.5rem; display: block; margin-bottom: 10px; color: #ccc;"></i>
+                        Nenhum item corresponde aos critérios de filtragem.
+                    </div>
+                <?php endif; ?>
             </div>
-        <?php endif; ?>
-    </div>
-</div>
+        </div>
 
         <?php include 'CARRINHOCHECKCOMUM.php'; ?>
         <?php include 'PEDIDOSCHECKCOMUM.php'; ?>
@@ -562,3 +565,5 @@ if (isset($_GET['aba'])) {
             });
         <?php endif; ?>
     </script>
+</body>
+</html>
