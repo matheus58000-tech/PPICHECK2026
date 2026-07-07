@@ -4,12 +4,13 @@ $mensagem_conta = "";
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
     global $aba_ativa;
     $aba_ativa = "view-conta"; 
-    $novo_email = $_POST['email'];
+    $novo_email = trim($_POST['email']);
     $senha_atual = $_POST['senha_atual'];
     $nova_senha = $_POST['nova_senha'];
     $confirma_senha = $_POST['confirma_senha'];
 
-    $stmt_check = $conn->prepare("SELECT Senha FROM Usuarios WHERE id_user = ?");
+    // Agora buscamos o Email atual junto com a Senha no banco de dados para poder comparar
+    $stmt_check = $conn->prepare("SELECT Email, Senha FROM Usuarios WHERE id_user = ?");
     $stmt_check->bind_param("i", $id_usuario);
     $stmt_check->execute();
     $resultado_check = $stmt_check->get_result();
@@ -18,24 +19,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
     try {
         if (!empty($nova_senha)) {
             if ($nova_senha !== $confirma_senha) {
-                $mensagem_conta = "<script>window.onload = function() { showToast('As novas senhas não coincidem.', 'error'); }</script>";
+                $mensagem_conta = "showToast('As novas senhas não coincidem.', 'error');";
             } else if (!password_verify($senha_atual, $user_db['Senha'])) {
-                $mensagem_conta = "<script>window.onload = function() { showToast('A senha atual está incorreta.', 'error'); }</script>";
+                $mensagem_conta = "showToast('A senha atual está incorreta.', 'error');";
             } else {
                 $senha_hash = password_hash($nova_senha, PASSWORD_DEFAULT);
                 $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ?, Senha = ? WHERE id_user = ?");
                 $stmt_upd->bind_param("ssi", $novo_email, $senha_hash, $id_usuario);
                 $stmt_upd->execute();
-                $mensagem_conta = "<script>window.onload = function() { showToast('Dados e senha atualizados com sucesso!', 'success'); }</script>";
+                $mensagem_conta = "showToast('Dados e senha atualizados com sucesso!', 'success');";
             }
         } else {
-            $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ? WHERE id_user = ?");
-            $stmt_upd->bind_param("si", $novo_email, $id_usuario);
-            $stmt_upd->execute();
-            $mensagem_conta = "<script>window.onload = function() { showToast('Email atualizado com sucesso!', 'success'); }</script>";
+            // Se a senha não for mudada, verifica se o e-mail digitado é diferente do atual
+            if ($novo_email !== $user_db['Email']) {
+                $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ? WHERE id_user = ?");
+                $stmt_upd->bind_param("si", $novo_email, $id_usuario);
+                $stmt_upd->execute();
+                $mensagem_conta = "showToast('Email atualizado com sucesso!', 'success');";
+            } else {
+                // Se o e-mail for exatamente o mesmo, ele não roda o UPDATE no banco
+                $mensagem_conta = "showToast('Nenhuma alteração foi feita.', 'warning');";
+            }
         }
     } catch (mysqli_sql_exception $e) {
-        $mensagem_conta = "<script>window.onload = function() { showToast('Erro: O E-mail digitado já está em uso.', 'error'); }</script>";
+        $mensagem_conta = "showToast('Erro: O E-mail digitado já está em uso.', 'error');";
     }
 }
 
@@ -48,10 +55,7 @@ $nome_exibicao = htmlspecialchars($dados_usuario['Nome'] ?? '');
 $cpf_exibicao = htmlspecialchars($dados_usuario['CPF'] ?? '');
 $siape_exibicao = htmlspecialchars($dados_usuario['SIAPE'] ?? '');
 $email_exibicao = htmlspecialchars($dados_usuario['Email'] ?? '');
-
-echo $mensagem_conta;
 ?>
-
 <style>
     .account-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
     .account-column { display: flex; flex-direction: column; gap: 5px; }
@@ -59,45 +63,13 @@ echo $mensagem_conta;
     
     .account-actions { display: flex; gap: 15px; margin-top: 15px; width: 100%; }
     
-    .btn-acc-cancel { 
-        flex: 1; /* Faz o botão esticar */
-        justify-content: center; 
-        background-color: #e0e0e0; 
-        color: #333; 
-        padding: 12px; 
-        border: none; 
-        border-radius: 8px; 
-        font-weight: bold; 
-        cursor: pointer; 
-        transition: 0.2s; 
-        display: flex; 
-        align-items: center; 
-        gap: 8px; 
-        font-size: 1rem; 
-    }
+    .btn-acc-cancel { flex: 1; justify-content: center; background-color: #e0e0e0; color: #333; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; font-size: 1rem; }
     .btn-acc-cancel:hover { background-color: #ccc; }
     
-    .btn-acc-save { 
-        flex: 1; /* Faz o botão esticar */
-        justify-content: center; 
-        background-color: #0f006d; 
-        color: white; 
-        padding: 12px; 
-        border: none; 
-        border-radius: 8px; 
-        font-weight: bold; 
-        cursor: pointer; 
-        transition: 0.2s; 
-        display: flex; 
-        align-items: center; 
-        gap: 8px; 
-        font-size: 1rem; 
-    }
+    .btn-acc-save { flex: 1; justify-content: center; background-color: #0f006d; color: white; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; font-size: 1rem; }
     .btn-acc-save:hover { background-color: #0a004a; }
     
-    @media (max-width: 768px) { 
-        .account-grid { grid-template-columns: 1fr; gap: 20px; } 
-    }
+    @media (max-width: 768px) { .account-grid { grid-template-columns: 1fr; gap: 20px; } }
 </style>
 
 <main id="view-conta" class="main-view conta-main-container" style="display:none;">
@@ -158,8 +130,17 @@ echo $mensagem_conta;
                         <button type="submit" class="btn-acc-save"><i class="bi bi-save"></i> Salvar Alterações</button>
                     </div>
                 </div>
-
             </div>
         </form>
     </div> 
 </main>
+
+<?php if (!empty($mensagem_conta)): ?>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            <?php echo $mensagem_conta; ?>
+        }, 300);
+    });
+</script>
+<?php endif; ?>
