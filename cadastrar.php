@@ -12,8 +12,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
     $erros = [];
     
-    // --- 1. VALIDAÇÕES DE SEGURANÇA MULTIPLAS ---
-    
     if (empty($nome) || strlen($nome) < 3) {
         $erros['cad_nome'] = "O nome deve ter pelo menos 3 letras.";
     }
@@ -40,14 +38,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $erros['cad_senha'] = "Mínimo 8 caracteres.";
     }
 
-    // Se encontrou erros, devolve tudo pra tela
     if (count($erros) > 0) {
         $_SESSION['erros_cadastro'] = $erros;
         header("Location: index.php"); 
         exit();
     }
 
-    // --- 2. SALVAMENTO NO BANCO ---
     $senha_hash = password_hash($senha, PASSWORD_DEFAULT);
 
     try {
