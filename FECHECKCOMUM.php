@@ -158,7 +158,7 @@ if (isset($_GET['aba'])) {
                             $indisponivel = ($quantidade <= 0);
                             $imagem_nome = trim($item['Imagem'] ?? '');
                             
-                            // Correção da imagem padrão do catálogo
+                        
                             if (empty($imagem_nome)) {
                                 $imagem = 'LOGOCHECKSEMDESCR.jpg';
                             } elseif (file_exists($imagem_nome)) {
