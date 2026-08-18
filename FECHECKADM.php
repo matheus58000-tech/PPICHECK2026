@@ -3,7 +3,7 @@ ob_start();
 session_start();
 require_once 'conexao.php'; 
 
-// Segurança: Apenas Admin ou Resp podem aceder
+
 if (!isset($_SESSION['usuario_id']) || ($_SESSION['usuario_tipo'] !== 'admin' && $_SESSION['usuario_tipo'] !== 'resp')) {
     header("Location: index.php");
     exit();
@@ -39,22 +39,21 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
 
     <style>
         .main-nav .nav-dropdown .dropdown-content {
-            display: flex !important; /* Garante que existe no DOM */
+            display: flex !important; 
             flex-direction: column;
             visibility: hidden;
             opacity: 0;
-            pointer-events: none; /* Ignora cliques quando invisível */
+            pointer-events: none; 
             
-            /* Ao tirar o mouse: segura 0.3s, depois apaga em 0.2s */
             transition: visibility 0s 0.5s, opacity 0.2s linear 0.3s;
         }
 
         .main-nav .nav-dropdown:hover .dropdown-content {
             visibility: visible;
             opacity: 1;
-            pointer-events: auto; /* Permite cliques */
+            pointer-events: auto; 
             
-            /* Ao colocar o mouse: aparece imediatamente */
+ 
             transition: visibility 0s 0s, opacity 0.2s linear 0s;
         }
     </style>
@@ -323,7 +322,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             }, 3000);
         }
 
-        // ================= NAVEGAÇÃO E SPA =================
+
         function switchAppView(viewId, element) {
             document.querySelectorAll('.main-view').forEach(v => v.style.display = 'none');
             document.getElementById(viewId).style.display = 'block';
@@ -344,7 +343,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             document.getElementById('page-main-title').innerText = titleText;
         }
 
-        // ================= FUNÇÃO CAMPO DINÂMICO ADD USUÁRIO =================
+
         function mudarCampoDinamicoAddUser(tipo) {
             const grupo = document.getElementById('grupo-dinamico-add-user');
             const label = document.getElementById('label-dinamico-add-user');
@@ -366,8 +365,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                 input.value = '';
             }
         }
-
-        // ================= MÁSCARA DE CPF =================
+        
         const addCpfInput = document.getElementById('add_cpf');
         const editCpfInput = document.getElementById('edit_cpf');
         
@@ -383,7 +381,6 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         if(addCpfInput) addCpfInput.addEventListener('input', aplicarMascaraCPF);
         if(editCpfInput) editCpfInput.addEventListener('input', aplicarMascaraCPF);
 
-        // ================= OUTRAS FUNÇÕES JS =================
         function openProductModal(card) {
             document.getElementById('modal-img').src = card.getAttribute('data-img');
             document.getElementById('modal-title').innerText = card.getAttribute('data-name');
