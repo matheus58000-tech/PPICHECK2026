@@ -11,7 +11,6 @@ $matricula_exibicao = htmlspecialchars($dados_usuario['Matricula'] ?? '');
 $email_exibicao = htmlspecialchars($dados_usuario['Email'] ?? '');
 $status_exibicao = $dados_usuario['status'] ?? 'ativo';
 
-// Resgata mensagens da Sessão que vieram do FECHECKCOMUM.php
 $toast_script = "";
 if (isset($_SESSION['msg_erro'])) {
     $msg = addslashes($_SESSION['msg_erro']);
@@ -88,7 +87,7 @@ if (isset($_SESSION['msg_erro'])) {
             <?php endif; ?>
 
             <div class="account-grid">
-                <!-- COLUNA ESQUERDA (Inalterável) -->
+
                 <div class="account-column">
                     <div class="readonly-notice">
                         <strong><i class="bi bi-info-circle"></i> Informações Fixas</strong><br>
@@ -111,7 +110,7 @@ if (isset($_SESSION['msg_erro'])) {
                     </div>
                 </div>
 
-                <!-- COLUNA DIREITA (Editável) -->
+               
                 <div class="account-column">
                     <div class="input-group">
                         <label>Email</label>
@@ -133,7 +132,6 @@ if (isset($_SESSION['msg_erro'])) {
                         <input type="password" name="confirma_senha" placeholder="Repita a nova senha">
                     </div>
 
-                    <!-- BOTÕES ALINHADOS -->
                     <div class="account-actions">
                         <button type="reset" class="btn-acc-cancel"><i class="bi bi-x-circle"></i> Cancelar</button>
                         <button type="submit" class="btn-acc-save"><i class="bi bi-save"></i> Salvar Alterações</button>
