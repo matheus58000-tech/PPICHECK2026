@@ -7,7 +7,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $senha = $_POST['senha'];
     $tipo = $_POST['tipo_login']; 
 
-    // Salva a aba que o usuário estava para não resetar a tela quando der erro
     $_SESSION['ultimo_tipo_login'] = $tipo;
 
     $coluna_busca = "";
@@ -34,7 +33,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($resultado->num_rows > 0) {
         $usuario = $resultado->fetch_assoc();
         
-        // Bloqueia o acesso se o usuário estiver com status bloqueado
         if (isset($usuario['status']) && $usuario['status'] === 'bloqueado') {
             $_SESSION['erro_campo'] = "usuario";
             $_SESSION['erro_msg'] = "Sua conta foi bloqueada pelo administrador.";
@@ -47,20 +45,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $_SESSION['usuario_nome'] = $usuario['Nome'];
             $_SESSION['usuario_tipo'] = $usuario['Tipo_user'];
             
-            // Limpa as variáveis de erro se o login der certo
             unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['ultimo_tipo_login']);
             
             header("Location: " . $pagina_destino);
             exit();
         } else {
-            // ERRO DE SENHA
+        
             $_SESSION['erro_campo'] = "senha";
             $_SESSION['erro_msg'] = "Senha incorreta!";
             header("Location: index.php");
             exit();
         }
     } else {
-        // ERRO DE USUÁRIO (Matrícula, CPF ou SIAPE errados)
+
         $_SESSION['erro_campo'] = "usuario";
         $_SESSION['erro_msg'] = "Usuário não encontrado neste nível de acesso.";
         header("Location: index.php");
