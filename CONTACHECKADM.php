@@ -9,7 +9,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
     $nova_senha = $_POST['nova_senha'];
     $confirma_senha = $_POST['confirma_senha'];
 
-    // Agora buscamos o Email atual junto com a Senha no banco de dados para poder comparar
     $stmt_check = $conn->prepare("SELECT Email, Senha FROM Usuarios WHERE id_user = ?");
     $stmt_check->bind_param("i", $id_usuario);
     $stmt_check->execute();
@@ -30,14 +29,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
                 $mensagem_conta = "showToast('Dados e senha atualizados com sucesso!', 'success');";
             }
         } else {
-            // Se a senha não for mudada, verifica se o e-mail digitado é diferente do atual
+           
             if ($novo_email !== $user_db['Email']) {
                 $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ? WHERE id_user = ?");
                 $stmt_upd->bind_param("si", $novo_email, $id_usuario);
                 $stmt_upd->execute();
                 $mensagem_conta = "showToast('Email atualizado com sucesso!', 'success');";
             } else {
-                // Se o e-mail for exatamente o mesmo, ele não roda o UPDATE no banco
+               
                 $mensagem_conta = "showToast('Nenhuma alteração foi feita.', 'warning');";
             }
         }
