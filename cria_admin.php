@@ -1,16 +1,14 @@
 <?php
-require_once 'conexao.php'; // Puxa a sua conexão com o banco
+require_once 'conexao.php'; 
 
 $nome = 'Administrador Mestre';
 $siape = '999999';
 $email = 'mestre@check.com';
-$senha_plana = 'admin123'; // Senha fácil para testar
+$senha_plana = 'admin123';
 $tipo = 'admin';
 
-// O próprio PHP vai criar a criptografia perfeita agora
 $senha_hash = password_hash($senha_plana, PASSWORD_DEFAULT);
 
-// Prepara o comando para inserir no banco com as novas colunas maiúsculas
 $stmt = $conn->prepare("INSERT INTO Usuarios (Nome, SIAPE, Email, Senha, Tipo_user) VALUES (?, ?, ?, ?, ?)");
 $stmt->bind_param("sssss", $nome, $siape, $email, $senha_hash, $tipo);
 
@@ -21,7 +19,6 @@ if ($stmt->execute()) {
     echo "<p><strong>Aba de Login:</strong> ADMIN</p>";
     echo "<p><strong>SIAPE:</strong> $siape</p>";
     echo "<p><strong>Senha:</strong> $senha_plana</p>";
-    // Atualizado para index.php
     echo "<br><br><a href='index.php' style='padding: 10px 20px; background: #0d005f; color: white; text-decoration: none; border-radius: 5px; display: inline-block;'>Ir para o Login</a>";
     echo "</div>";
 } else {
