@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'conexao.php';
+require_once 'envia_email.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = trim($_POST['email_recuperacao']);
@@ -11,8 +12,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $stmt->store_result();
 
     if ($stmt->num_rows > 0) {
-        $_SESSION['msg_sucesso'] = "Instruções enviadas para o seu e-mail!";
-        header("Location: index.php");
+        $codigo = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+        
+        $_SESSION['email_recuperacao'] = $email;
+        $_SESSION['codigo_verificacao'] = $codigo;
+        $_SESSION['acao_verificacao'] = 'recuperacao';
+
+        enviarCodigoEmail($email, $codigo);
+
+        header("Location: verificacao.php");
         exit();
     } else {
         $_SESSION['erro_campo'] = "recuperacao";
@@ -20,8 +28,5 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         header("Location: index.php");
         exit();
     }
-
-    $stmt->close();
-    $conn->close();
 }
 ?>
