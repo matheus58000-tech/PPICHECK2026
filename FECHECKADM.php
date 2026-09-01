@@ -193,7 +193,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                             <i class="bi bi-x-lg"></i> Indisponível
                         </div>
                     <?php else: ?>
-                        <div class="add-to-cart-btn" onclick="event.stopPropagation(); showToast('Item adicionado ao carrinho!', 'success');">
+                        <div class="add-to-cart-btn" onclick="event.stopPropagation(); addToCartFromCard(this.closest('.item-card'));">
                             <i class="bi bi-plus"></i> Adicionar
                         </div>
                     <?php endif; ?>
@@ -302,7 +302,74 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
     <div id="toast-container"></div>
 
     <script>
-      
+        // Sistema de Carrinho Dinâmico
+        let cart = JSON.parse(localStorage.getItem('cartAdmin')) || [];
+
+        function saveCart() {
+            localStorage.setItem('cartAdmin', JSON.stringify(cart));
+        }
+
+        function addToCart(item) {
+            const existingItem = cart.find(i => i.id === item.id);
+            if (existingItem) {
+                existingItem.qty += item.qty;
+            } else {
+                cart.push(item);
+            }
+            saveCart();
+            renderCart();
+            showToast('Item adicionado ao carrinho!', 'success');
+        }
+
+        function removeFromCart(itemId) {
+            cart = cart.filter(i => i.id !== itemId);
+            saveCart();
+            renderCart();
+            showToast('Item removido do carrinho.', 'warning');
+        }
+
+        function updateCartQty(itemId, change) {
+            const item = cart.find(i => i.id === itemId);
+            if (item) {
+                if (change < 0 && item.qty === 1) {
+                    if (confirm('Deseja remover este item do carrinho?')) {
+                        removeFromCart(itemId);
+                    }
+                } else {
+                    item.qty += change;
+                    if (item.qty < 1) item.qty = 1;
+                    saveCart();
+                    renderCart();
+                }
+            }
+        }
+
+        function renderCart() {
+            const cartList = document.querySelector('#view-carrinho .cart-list');
+            if (!cartList) return;
+
+            if (cart.length === 0) {
+                cartList.innerHTML = '<p style="text-align:center; padding: 40px; color: #666;">Seu carrinho está vazio.</p>';
+                return;
+            }
+
+            cartList.innerHTML = cart.map(item => `
+                <div class="cart-item" data-id="${item.id}">
+                    <img src="${item.img}" alt="${item.name}" class="cart-item-img">
+                    <div class="cart-item-info">
+                        <strong class="cart-item-name">${item.name}</strong>
+                        <span class="cart-item-code">Cód: #${item.code}</span>
+                    </div>
+                    <div class="quantity-controls">
+                        <button class="qty-btn minus" onclick="updateCartQty('${item.id}', -1)">-</button>
+                        <input type="text" value="${item.qty}" class="qty-input" readonly>
+                        <button class="qty-btn plus" onclick="updateCartQty('${item.id}', 1)">+</button>
+                    </div>
+                    <button class="remove-btn" title="Remover item" onclick="removeFromCart('${item.id}')"><i class="bi bi-trash"></i></button>
+                </div>
+            `).join('');
+        }
+
         function showToast(msg, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -408,7 +475,42 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             document.getElementById('product-modal').style.display = 'flex';
         }
         function closeProductModal() { document.getElementById('product-modal').style.display = 'none'; }
-        function addToCartFromModal() { showToast('Item adicionado ao carrinho!', 'success'); closeProductModal(); }
+        function addToCartFromModal() {
+            const img = document.getElementById('modal-img').src;
+            const name = document.getElementById('modal-title').innerText;
+            const cat = document.getElementById('modal-cat').innerText;
+            const qty = parseInt(document.getElementById('modal-qty').value);
+            const card = document.querySelector('.item-card[data-name="' + name + '"]');
+            const code = card ? card.getAttribute('data-cat-id') : '000';
+            
+            const item = {
+                id: name,
+                img: img,
+                name: name,
+                code: code,
+                qty: qty
+            };
+            
+            addToCart(item);
+            closeProductModal();
+        }
+
+        function addToCartFromCard(card) {
+            const img = card.getAttribute('data-img');
+            const name = card.getAttribute('data-name');
+            const code = card.getAttribute('data-cat-id');
+            const qty = 1;
+            
+            const item = {
+                id: name,
+                img: img,
+                name: name,
+                code: code,
+                qty: qty
+            };
+            
+            addToCart(item);
+        }
 
         function updateQty(btn, change) {
             const input = btn.parentElement.querySelector('.qty-input');
@@ -553,6 +655,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
 
         // ================= RETORNO DA ABA APÓS RECARREGAR =================
         document.addEventListener('DOMContentLoaded', () => {
+            renderCart();
             <?php if ($aba_ativa === "view-conta"): ?>
                 switchAppView('view-conta', document.getElementById('nav-conta-btn'));
             <?php elseif ($aba_ativa === "view-lab"): ?>
