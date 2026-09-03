@@ -2,10 +2,10 @@
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-// Escolha a forma de carregamento que você configurou (Manual ou Composer)
-require 'PHPMailer/Exception.php';
-require 'PHPMailer/PHPMailer.php';
-require 'PHPMailer/SMTP.php';
+
+require 'Exception.php';
+require 'PHPMailer.php';
+require 'SMTP.php';
 
 function enviarCodigoEmail($destinatario, $codigo) {
     $mail = new PHPMailer(true);
