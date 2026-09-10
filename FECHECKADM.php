@@ -169,14 +169,15 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                     $desc_limpa = htmlspecialchars($item['Descricao_Item'] ?? '');
             ?>
 
-                <div class="item-card" 
-                     onclick="openProductModal(this)" 
-                     data-name="<?php echo $nome_limpo; ?>" 
-                     data-img="<?php echo $img_final; ?>" 
-                     data-qty="<?php echo $item['Qntd']; ?>" 
+                <div class="item-card"
+                     onclick="openProductModal(this)"
+                     data-name="<?php echo $nome_limpo; ?>"
+                     data-img="<?php echo $img_final; ?>"
+                     data-qty="<?php echo $item['Qntd']; ?>"
                      data-cat="<?php echo $cat_limpa; ?>"
                      data-cat-id="<?php echo (int)($item['id_cat'] ?? 0); ?>"
-                     data-desc="<?php echo $desc_limpa; ?>">
+                     data-desc="<?php echo $desc_limpa; ?>"
+                     data-stock="<?php echo $item['Qntd']; ?>">
                      
                     <div class="item-image-container">
                         <img src="<?php echo $img_final; ?>" alt="<?php echo $nome_limpo; ?>">
@@ -322,21 +323,28 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         }
 
         function removeFromCart(itemId) {
-            cart = cart.filter(i => i.id !== itemId);
-            saveCart();
-            renderCart();
-            showToast('Item removido do carrinho.', 'warning');
+            if (confirm('Tem certeza que deseja excluir este item do carrinho?')) {
+                cart = cart.filter(i => i.id !== itemId);
+                saveCart();
+                renderCart();
+                showToast('Item removido do carrinho.', 'warning');
+            }
         }
 
         function updateCartQty(itemId, change) {
             const item = cart.find(i => i.id === itemId);
             if (item) {
+                const newQty = item.qty + change;
+                if (change > 0 && newQty > item.stock) {
+                    showToast(`Estoque insuficiente! Disponível: ${item.stock} unidades.`, 'error');
+                    return;
+                }
                 if (change < 0 && item.qty === 1) {
                     if (confirm('Deseja remover este item do carrinho?')) {
                         removeFromCart(itemId);
                     }
                 } else {
-                    item.qty += change;
+                    item.qty = newQty;
                     if (item.qty < 1) item.qty = 1;
                     saveCart();
                     renderCart();
@@ -354,18 +362,18 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             }
 
             cartList.innerHTML = cart.map(item => `
-                <div class="cart-item" data-id="${item.id}">
+                <div class="cart-item" data-id="${item.id}" onclick="openCartProductModal('${item.id}')">
                     <img src="${item.img}" alt="${item.name}" class="cart-item-img">
                     <div class="cart-item-info">
                         <strong class="cart-item-name">${item.name}</strong>
                         <span class="cart-item-code">Cód: #${item.code}</span>
                     </div>
                     <div class="quantity-controls">
-                        <button class="qty-btn minus" onclick="updateCartQty('${item.id}', -1)">-</button>
+                        <button class="qty-btn minus" onclick="event.stopPropagation(); updateCartQty('${item.id}', -1)">-</button>
                         <input type="text" value="${item.qty}" class="qty-input" readonly>
-                        <button class="qty-btn plus" onclick="updateCartQty('${item.id}', 1)">+</button>
+                        <button class="qty-btn plus" onclick="event.stopPropagation(); updateCartQty('${item.id}', 1)">+</button>
                     </div>
-                    <button class="remove-btn" title="Remover item" onclick="removeFromCart('${item.id}')"><i class="bi bi-trash"></i></button>
+                    <button class="remove-btn" title="Remover item" onclick="event.stopPropagation(); removeFromCart('${item.id}')"><i class="bi bi-trash"></i></button>
                 </div>
             `).join('');
         }
@@ -482,15 +490,26 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             const qty = parseInt(document.getElementById('modal-qty').value);
             const card = document.querySelector('.item-card[data-name="' + name + '"]');
             const code = card ? card.getAttribute('data-cat-id') : '000';
-            
+            const stock = card ? parseInt(card.getAttribute('data-stock')) : 0;
+
+            const existingItem = cart.find(i => i.id === name);
+            const currentQty = existingItem ? existingItem.qty : 0;
+
+            if (currentQty + qty > stock) {
+                showToast(`Estoque insuficiente! Disponível: ${stock} unidades.`, 'error');
+                return;
+            }
+
             const item = {
                 id: name,
                 img: img,
                 name: name,
                 code: code,
-                qty: qty
+                qty: qty,
+                stock: stock,
+                desc: card ? card.getAttribute('data-desc') : ''
             };
-            
+
             addToCart(item);
             closeProductModal();
         }
@@ -499,16 +518,28 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             const img = card.getAttribute('data-img');
             const name = card.getAttribute('data-name');
             const code = card.getAttribute('data-cat-id');
+            const stock = parseInt(card.getAttribute('data-stock'));
+            const desc = card.getAttribute('data-desc');
             const qty = 1;
-            
+
+            const existingItem = cart.find(i => i.id === name);
+            const currentQty = existingItem ? existingItem.qty : 0;
+
+            if (currentQty + qty > stock) {
+                showToast(`Estoque insuficiente! Disponível: ${stock} unidades.`, 'error');
+                return;
+            }
+
             const item = {
                 id: name,
                 img: img,
                 name: name,
                 code: code,
-                qty: qty
+                qty: qty,
+                stock: stock,
+                desc: desc
             };
-            
+
             addToCart(item);
         }
 
@@ -516,6 +547,60 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             const input = btn.parentElement.querySelector('.qty-input');
             let newValue = parseInt(input.value) + change;
             input.value = newValue < 1 ? 1 : newValue;
+        }
+
+        function openCartProductModal(itemId) {
+            const item = cart.find(i => i.id === itemId);
+            if (!item) return;
+
+            document.getElementById('modal-img').src = item.img;
+            document.getElementById('modal-title').innerText = item.name;
+            document.getElementById('modal-cat').innerText = item.code;
+            document.getElementById('modal-desc').innerText = item.desc || '';
+
+            const qtyInput = document.getElementById('modal-qty');
+            const stockEl = document.getElementById('modal-stock');
+            const btnEl = document.querySelector('.modal-add-btn');
+
+            qtyInput.value = item.qty;
+            qtyInput.max = item.stock;
+
+            if (item.stock > 0) {
+                stockEl.innerText = `${item.stock} unidades em estoque`;
+                stockEl.className = 'stock-green';
+                qtyInput.disabled = false;
+
+                if (btnEl) {
+                    btnEl.disabled = false;
+                    btnEl.style.backgroundColor = '#0f006d';
+                    btnEl.innerHTML = '<i class="bi bi-cart-plus"></i> Atualizar Carrinho';
+                    btnEl.onclick = function() {
+                        const newQty = parseInt(qtyInput.value);
+                        if (newQty > item.stock) {
+                            showToast(`Estoque insuficiente! Disponível: ${item.stock} unidades.`, 'error');
+                            return;
+                        }
+                        item.qty = newQty;
+                        saveCart();
+                        renderCart();
+                        showToast('Quantidade atualizada!', 'success');
+                        closeProductModal();
+                    };
+                }
+            } else {
+                stockEl.innerText = 'Indisponível no momento';
+                stockEl.className = 'stock-red';
+                qtyInput.value = 0;
+                qtyInput.disabled = true;
+
+                if (btnEl) {
+                    btnEl.disabled = true;
+                    btnEl.style.backgroundColor = '#ccc';
+                    btnEl.innerHTML = 'Indisponível';
+                }
+            }
+
+            document.getElementById('product-modal').style.display = 'flex';
         }
 
         // ================= MODAIS DE PEDIDO (CHECKOUT E RENOVAÇÃO) ADM =================
