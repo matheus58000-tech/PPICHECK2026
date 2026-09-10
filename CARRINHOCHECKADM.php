@@ -5,7 +5,9 @@
     </div>
 
     <div class="cart-footer">
-        <a href="#" class="continue-btn" onclick="switchAppView('view-catalogo', document.getElementById('nav-catalogo-btn'))">Continuar escolhendo</a>
+        <a href="#" class="continue-btn" onclick="switchAppView('view-catalogo', document.getElementById('nav-catalogo-btn'))">
+            <i class="bi bi-grid-3x3-gap-fill"></i> Acessar Catálogo
+        </a>
         <a href="#" class="checkout-btn" onclick="openCheckoutModal(event)">
             Finalizar Pedido <i class="bi bi-arrow-right"></i>
         </a>
