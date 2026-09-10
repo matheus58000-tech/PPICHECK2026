@@ -3,7 +3,6 @@ ob_start();
 session_start();
 require_once 'conexao.php'; 
 
-
 if (!isset($_SESSION['usuario_id']) || ($_SESSION['usuario_tipo'] !== 'admin' && $_SESSION['usuario_tipo'] !== 'resp')) {
     header("Location: index.php");
     exit();
