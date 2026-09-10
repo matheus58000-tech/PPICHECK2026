@@ -18,6 +18,7 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
     <link rel="stylesheet" href="FELOGINCHECKCSS.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&display=swap" rel="stylesheet">
+    
     <style>
         .strength-meter-container {
             margin-top: -10px;
@@ -41,6 +42,43 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
             color: #777;
             margin-top: 5px;
             display: block;
+        }
+
+        .login-card {
+            position: relative !important;
+            padding-bottom: 100px !important; 
+        }
+
+        .visitor-btn-wrapper {
+            position: absolute !important;
+            bottom: 25px !important; 
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            width: 70% !important;
+            max-width: 450px !important;
+            display: flex !important;
+            justify-content: center !important;
+            z-index: 100 !important;
+        }
+
+        .btn-visitor {
+            background-color: #0c005a !important;
+            color: #ffffff !important;
+            font-family: 'Montserrat', sans-serif !important;
+            font-weight: 700 !important;
+            font-size: 1.3rem !important;
+            padding: 16px 0 !important;
+            width: 100% !important;
+            text-align: center !important;
+            border-radius: 14px !important;
+            text-decoration: none !important;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
+            border: none !important;
+            transition: background-color 0.3s ease !important;
+        }
+
+        .btn-visitor:hover {
+            background-color: #15008b !important;
         }
     </style>
 </head>
@@ -98,6 +136,8 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
                     </div>
                 </div>
 
+                <!-- DEMAIS SEÇÕES (CADASTRO E RECUPERAÇÃO) OMITIDAS PARA BREVIDADE, MAS MANTIDAS IGUAIS AO SEU CÓDIGO ORIGINAL -->
+                
                 <div id="view-register" class="view-section hidden">
                     <h2 class="form-title" style="margin-bottom: 0;">CADASTRO</h2>
                     <h3 class="form-subtitle">USUÁRIO PADRÃO</h3>
@@ -193,6 +233,11 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
                 </div>
 
             </div>
+            
+            <div class="visitor-btn-wrapper" id="visitor-btn-wrapper">
+                <a href="catalogo_visitante.php" class="btn-visitor">Visualizar catálogo</a>
+            </div>
+
         </div>
     </div>
 
@@ -200,6 +245,7 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
         const viewLogin = document.getElementById('view-login');
         const viewRegister = document.getElementById('view-register');
         const viewRecover = document.getElementById('view-recover');
+        const visitorBtnWrapper = document.getElementById('visitor-btn-wrapper');
 
         const linkGoRegister = document.getElementById('link-go-register');
         const linkGoRecoverLogin = document.getElementById('link-go-recover-login');
@@ -214,6 +260,13 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
             viewRegister.classList.add('hidden');
             viewRecover.classList.add('hidden');
             viewToShow.classList.remove('hidden');
+
+            /* Oculta o botão de visitante se não estiver na aba de login */
+            if (viewToShow === viewLogin) {
+                visitorBtnWrapper.style.display = 'flex';
+            } else {
+                visitorBtnWrapper.style.display = 'none';
+            }
         }
 
         linkGoRegister.addEventListener('click', (e) => { e.preventDefault(); switchView(viewRegister); });
