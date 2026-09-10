@@ -4,7 +4,9 @@
     </div>
 
     <div class="cart-footer">
-        <a href="#" onclick="switchTab('tab-catalogo', 'Catálogo de Itens', 'nav-catalogo')" class="continue-btn">Continuar escolhendo</a>
+        <a href="#" onclick="switchTab('tab-catalogo', 'Catálogo de Itens', 'nav-catalogo')" class="continue-btn">
+            <i class="bi bi-grid-3x3-gap-fill"></i> Acessar Catálogo
+        </a>
         <button class="checkout-btn" onclick="openCheckoutModal()">
             Finalizar Pedido <i class="bi bi-arrow-right"></i>
         </button>
