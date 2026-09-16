@@ -1,7 +1,6 @@
 <?php
 session_start();
 require_once 'conexao.php';
-require_once 'envia_email.php'; 
 
 function validaCPF($cpf) {
     $c = preg_replace('/[^0-9]/', '', $cpf);
@@ -28,9 +27,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $erros = [];
     
     if (empty($nome) || strlen($nome) < 3) $erros['cad_nome'] = "O nome deve ter pelo menos 3 letras.";
-    
     if (!validaCPF($cpf)) $erros['cad_cpf'] = "CPF inválido.";
-    
     if (empty($matricula) || strlen($matricula) !== 10 || !is_numeric($matricula)) $erros['cad_matricula'] = "Digite 10 números.";
     
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -54,8 +51,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit();
     }
 
+    $cpf_limpo = preg_replace('/[^0-9]/', '', $cpf);
     $stmt = $conn->prepare("SELECT id_user FROM Usuarios WHERE CPF = ? OR Matricula = ? OR Email = ?");
-    $stmt->bind_param("sss", $cpf, $matricula, $email);
+    $stmt->bind_param("sss", $cpf_limpo, $matricula, $email);
     $stmt->execute();
     if ($stmt->get_result()->num_rows > 0) {
         $_SESSION['erros_cadastro']['geral'] = "CPF, Matrícula ou E-mail já estão em uso.";
@@ -63,19 +61,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit();
     }
 
-    $codigo = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+    $senha_hash = password_hash($senha, PASSWORD_DEFAULT);
+    $validado = 'nao';
     
-    $_SESSION['dados_temp_cadastro'] = [
-        'nome' => $nome, 'cpf' => preg_replace('/[^0-9]/', '', $cpf),
-        'matricula' => $matricula, 'email' => $email,
-        'data_nascimento' => $data_nascimento, 'senha' => password_hash($senha, PASSWORD_DEFAULT)
-    ];
-    $_SESSION['codigo_verificacao'] = $codigo;
-    $_SESSION['acao_verificacao'] = 'cadastro';
+    $stmt_insert = $conn->prepare("INSERT INTO Usuarios (Nome, CPF, Matricula, Email, Data_nasc, Senha, Tipo_user, validado) VALUES (?, ?, ?, ?, ?, ?, 'padrao', ?)");
+    $stmt_insert->bind_param("sssssss", $nome, $cpf_limpo, $matricula, $email, $data_nascimento, $senha_hash, $validado);
+    
+    if ($stmt_insert->execute()) {
+        $_SESSION['msg_sucesso'] = "Conta criada com sucesso! Faça login para validar o acesso.";
+    }
 
-    enviarCodigoEmail($email, $codigo);
-
-    header("Location: verificacao.php");
+    header("Location: index.php");
     exit();
 }
 ?>
