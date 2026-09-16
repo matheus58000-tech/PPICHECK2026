@@ -5,7 +5,6 @@ $erro_campo = isset($_SESSION['erro_campo']) ? $_SESSION['erro_campo'] : '';
 $erro_msg = isset($_SESSION['erro_msg']) ? $_SESSION['erro_msg'] : '';
 $erros_cadastro = isset($_SESSION['erros_cadastro']) ? $_SESSION['erros_cadastro'] : [];
 $msg_sucesso = isset($_SESSION['msg_sucesso']) ? $_SESSION['msg_sucesso'] : '';
-$ultimo_tipo_login = isset($_SESSION['ultimo_tipo_login']) ? $_SESSION['ultimo_tipo_login'] : 'padrao';
 
 unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], $_SESSION['erros_cadastro']);
 ?>
@@ -43,43 +42,6 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
             margin-top: 5px;
             display: block;
         }
-
-        .login-card {
-            position: relative !important;
-            padding-bottom: 100px !important; 
-        }
-
-        .visitor-btn-wrapper {
-            position: absolute !important;
-            bottom: 25px !important; 
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            width: 70% !important;
-            max-width: 450px !important;
-            display: flex !important;
-            justify-content: center !important;
-            z-index: 100 !important;
-        }
-
-        .btn-visitor {
-            background-color: #0c005a !important;
-            color: #ffffff !important;
-            font-family: 'Montserrat', sans-serif !important;
-            font-weight: 700 !important;
-            font-size: 1.3rem !important;
-            padding: 16px 0 !important;
-            width: 100% !important;
-            text-align: center !important;
-            border-radius: 14px !important;
-            text-decoration: none !important;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
-            border: none !important;
-            transition: background-color 0.3s ease !important;
-        }
-
-        .btn-visitor:hover {
-            background-color: #15008b !important;
-        }
     </style>
 </head>
 <body>
@@ -103,17 +65,9 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
                         <div class="success-box"><i class="bi bi-check-circle"></i> <?php echo $msg_sucesso; ?></div>
                     <?php endif; ?>
 
-                    <div class="role-selector">
-                        <button type="button" class="role-btn active" data-role="padrao">PADRÃO</button>
-                        <button type="button" class="role-btn" data-role="resp">RESP.</button>
-                        <button type="button" class="role-btn" data-role="admin">ADMIN</button>
-                    </div>
-
                     <form id="login-form" action="login.php" method="POST">
-                        <input type="hidden" name="tipo_login" id="tipo-login-hidden" value="padrao">
-
                         <div class="input-group">
-                            <input type="text" id="login-identificador" name="usuario" placeholder="Matrícula" required class="<?php echo ($erro_campo === 'usuario') ? 'input-error' : ''; ?>">
+                            <input type="text" id="login-cpf" name="usuario" placeholder="CPF" maxlength="14" required class="<?php echo ($erro_campo === 'usuario') ? 'input-error' : ''; ?>">
                             <?php if($erro_campo === 'usuario'): ?>
                                 <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erro_msg; ?></div>
                             <?php endif; ?>
@@ -127,7 +81,9 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
                             <?php endif; ?>
                         </div>
 
-                        <button type="submit" class="btn-primary">ACESSAR</button>
+                        <button type="submit" class="btn-primary">ACESSAR O SISTEMA</button>
+                        
+                        <a href="catalogo_visitante.php" class="btn-primary" style="display: flex; justify-content: center; align-items: center; margin-top: 15px; text-decoration: none; box-sizing: border-box;">ACESSAR CATÁLOGO</a>
                     </form>
 
                     <div class="links">
@@ -135,8 +91,6 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
                         <a href="#" id="link-go-recover-login">Esqueceu sua senha?</a>
                     </div>
                 </div>
-
-                <!-- DEMAIS SEÇÕES (CADASTRO E RECUPERAÇÃO) OMITIDAS PARA BREVIDADE, MAS MANTIDAS IGUAIS AO SEU CÓDIGO ORIGINAL -->
                 
                 <div id="view-register" class="view-section hidden">
                     <h2 class="form-title" style="margin-bottom: 0;">CADASTRO</h2>
@@ -233,11 +187,6 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
                 </div>
 
             </div>
-            
-            <div class="visitor-btn-wrapper" id="visitor-btn-wrapper">
-                <a href="catalogo_visitante.php" class="btn-visitor">Visualizar catálogo</a>
-            </div>
-
         </div>
     </div>
 
@@ -245,28 +194,16 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
         const viewLogin = document.getElementById('view-login');
         const viewRegister = document.getElementById('view-register');
         const viewRecover = document.getElementById('view-recover');
-        const visitorBtnWrapper = document.getElementById('visitor-btn-wrapper');
 
         const linkGoRegister = document.getElementById('link-go-register');
         const linkGoRecoverLogin = document.getElementById('link-go-recover-login');
         const linksGoLogin = document.querySelectorAll('.link-go-login');
-
-        const roleButtons = document.querySelectorAll('.role-btn');
-        const loginIdentificador = document.getElementById('login-identificador');
-        const tipoLoginHidden = document.getElementById('tipo-login-hidden'); 
 
         function switchView(viewToShow) {
             viewLogin.classList.add('hidden');
             viewRegister.classList.add('hidden');
             viewRecover.classList.add('hidden');
             viewToShow.classList.remove('hidden');
-
-            /* Oculta o botão de visitante se não estiver na aba de login */
-            if (viewToShow === viewLogin) {
-                visitorBtnWrapper.style.display = 'flex';
-            } else {
-                visitorBtnWrapper.style.display = 'none';
-            }
         }
 
         linkGoRegister.addEventListener('click', (e) => { e.preventDefault(); switchView(viewRegister); });
@@ -275,38 +212,6 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
         linksGoLogin.forEach(link => {
             link.addEventListener('click', (e) => { e.preventDefault(); switchView(viewLogin); });
         });
-
-        function setRole(role) {
-            roleButtons.forEach(btn => btn.classList.remove('active'));
-            const button = document.querySelector(`.role-btn[data-role="${role}"]`);
-            if (button) button.classList.add('active');
-            
-            tipoLoginHidden.value = role;
-            
-            if(role === 'padrao') {
-                linkGoRegister.style.display = 'block';
-                loginIdentificador.placeholder = "Matrícula";
-                loginIdentificador.removeAttribute('maxlength');
-            } else if(role === 'resp') {
-                linkGoRegister.style.display = 'none';
-                loginIdentificador.placeholder = "CPF";
-                loginIdentificador.setAttribute('maxlength', '14');
-            } else if(role === 'admin') {
-                linkGoRegister.style.display = 'none';
-                loginIdentificador.placeholder = "SIAPE";
-                loginIdentificador.removeAttribute('maxlength');
-            }
-        }
-
-        roleButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                setRole(button.getAttribute('data-role'));
-                loginIdentificador.value = ""; 
-            });
-        });
-
-        const ultimoTipo = "<?php echo $ultimo_tipo_login; ?>";
-        setRole(ultimoTipo);
 
         <?php if(!empty($erros_cadastro)): ?>
             switchView(viewRegister);
@@ -317,6 +222,18 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
         const cpfInput = document.getElementById('cpf-input');
         if(cpfInput) {
             cpfInput.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, ''); 
+                if (value.length > 11) value = value.slice(0, 11); 
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                e.target.value = value;
+            });
+        }
+
+        const loginCpf = document.getElementById('login-cpf');
+        if(loginCpf) {
+            loginCpf.addEventListener('input', function(e) {
                 let value = e.target.value.replace(/\D/g, ''); 
                 if (value.length > 11) value = value.slice(0, 11); 
                 value = value.replace(/(\d{3})(\d)/, '$1.$2');
@@ -347,17 +264,6 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
                 }
             });
         }
-
-        loginIdentificador.addEventListener('input', function(e) {
-            if (tipoLoginHidden.value === 'resp') {
-                let value = e.target.value.replace(/\D/g, ''); 
-                if (value.length > 11) value = value.slice(0, 11); 
-                value = value.replace(/(\d{3})(\d)/, '$1.$2');
-                value = value.replace(/(\d{3})(\d)/, '$1.$2');
-                value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-                e.target.value = value;
-            }
-        });
 
         document.querySelectorAll('.toggle-password').forEach(icon => {
             icon.addEventListener('click', function() {
