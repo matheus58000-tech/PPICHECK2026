@@ -1,10 +1,17 @@
 <?php
 require_once 'conexao.php';
 
-$sql_cat = "SELECT i.*, c.Nome as nome_categoria FROM Item i LEFT JOIN Categoria c ON i.id_cat = c.id_cat ORDER BY i.Nome ASC";
+
+$sql_cat = "SELECT i.*, c.Nome as nome_categoria 
+            FROM Item i 
+            LEFT JOIN Categoria c ON i.id_cat = c.id_cat 
+            WHERE (i.status_item = 'ativo' OR i.status_item IS NULL) 
+            AND (c.status_cat = 'ativo' OR c.status_cat IS NULL)
+            ORDER BY i.Nome ASC";
 $resultado_itens = $conn->query($sql_cat);
 
-$categorias_disponiveis = $conn->query("SELECT * FROM Categoria ORDER BY Nome ASC");
+
+$categorias_disponiveis = $conn->query("SELECT * FROM Categoria WHERE status_cat = 'ativo' OR status_cat IS NULL ORDER BY Nome ASC");
 $categorias_array = [];
 if ($categorias_disponiveis) {
     while ($cat = $categorias_disponiveis->fetch_assoc()) {
