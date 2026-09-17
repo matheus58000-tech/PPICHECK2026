@@ -12,7 +12,8 @@ $id_usuario = $_SESSION['usuario_id'];
 $aba_ativa = "view-catalogo"; 
 $sub_aba_ativa = "";
 
-$categorias_disponiveis = $conn->query("SELECT * FROM Categoria ORDER BY Nome ASC");
+// Oculta as categorias inativas do filtro de busca
+$categorias_disponiveis = $conn->query("SELECT * FROM Categoria WHERE status_cat = 'ativo' OR status_cat IS NULL ORDER BY Nome ASC");
 $categorias_array = [];
 if ($categorias_disponiveis) {
     while ($cat = $categorias_disponiveis->fetch_assoc()) {
@@ -52,7 +53,6 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             opacity: 1;
             pointer-events: auto; 
             
- 
             transition: visibility 0s 0s, opacity 0.2s linear 0s;
         }
     </style>
@@ -142,9 +142,12 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         </div>
         <div class="item-grid">
             <?php
+            // Filtra itens e categorias inativos (igual ao do aluno/visitante)
             $sql = "SELECT i.*, c.Nome as nome_categoria 
                     FROM Item i 
-                    INNER JOIN Categoria c ON i.id_cat = c.id_cat 
+                    LEFT JOIN Categoria c ON i.id_cat = c.id_cat 
+                    WHERE (i.status_item = 'ativo' OR i.status_item IS NULL) 
+                    AND (c.status_cat = 'ativo' OR c.status_cat IS NULL)
                     ORDER BY i.Nome ASC";
 
             $result = $conn->query($sql);
@@ -164,11 +167,11 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                     }
 
                     $nome_limpo = htmlspecialchars($item['Nome']);
-                    $cat_limpa = htmlspecialchars($item['nome_categoria']);
+                    $cat_limpa = htmlspecialchars($item['nome_categoria'] ?? 'Sem Categoria');
                     $desc_limpa = htmlspecialchars($item['Descricao_Item'] ?? '');
             ?>
 
-                <div class="item-card"
+                <div class="item-card" style="position: relative;"
                      onclick="openProductModal(this)"
                      data-name="<?php echo $nome_limpo; ?>"
                      data-img="<?php echo $img_final; ?>"
@@ -177,7 +180,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                      data-cat-id="<?php echo (int)($item['id_cat'] ?? 0); ?>"
                      data-desc="<?php echo $desc_limpa; ?>"
                      data-stock="<?php echo $item['Qntd']; ?>">
-                     
+
                     <div class="item-image-container">
                         <img src="<?php echo $img_final; ?>" alt="<?php echo $nome_limpo; ?>">
                     </div>
@@ -203,7 +206,10 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                 endwhile; 
             else: 
             ?>
-                <p style="grid-column: 1/-1; text-align: center; padding: 50px;">Nenhum item cadastrado.</p>
+                <div id="msg-vazia" style="grid-column: 1/-1; text-align: center; padding: 50px 20px; color: #666; width: 100%;">
+                    <i class="bi bi-search" style="font-size: 2.5rem; display: block; margin-bottom: 10px; color: #ccc;"></i>
+                    Nenhum item disponível no catálogo.
+                </div>
             <?php endif; ?>
         </div>
     </main>
@@ -396,7 +402,6 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             }, 3000);
         }
 
-
         function switchAppView(viewId, element) {
             document.querySelectorAll('.main-view').forEach(v => v.style.display = 'none');
             document.getElementById(viewId).style.display = 'block';
@@ -416,7 +421,6 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             document.getElementById(tabId).style.display = 'block';
             document.getElementById('page-main-title').innerText = titleText;
         }
-
 
         function mudarCampoDinamicoAddUser(tipo) {
             const grupo = document.getElementById('grupo-dinamico-add-user');
@@ -602,7 +606,6 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             document.getElementById('product-modal').style.display = 'flex';
         }
 
-        // ================= MODAIS DE PEDIDO (CHECKOUT E RENOVAÇÃO) ADM =================
         let prazosAdmSelecionados = { devolucaoAdm: '7', renova: '7' }; 
 
         function openCheckoutModal(e) { e.preventDefault(); document.getElementById('checkoutModal').style.display = 'flex'; }
@@ -657,7 +660,6 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             closeRenewalModal(); 
         }
 
-        // ================= FILTRO E BUSCA DO CATÁLOGO =================
         let categoriaAtiva = '';
 
         function toggleFilterMenu(event) {
@@ -737,7 +739,6 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             }
         });
 
-        // ================= RETORNO DA ABA APÓS RECARREGAR =================
         document.addEventListener('DOMContentLoaded', () => {
             renderCart();
             <?php if ($aba_ativa === "view-conta"): ?>
