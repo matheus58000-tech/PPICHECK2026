@@ -185,6 +185,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_item'])) {
             $_SESSION['msg_sucesso_lab'] = "Item excluído com sucesso!";
             redirectLab('view-lab', 'tab-estoque');
             
+        } elseif ($acao_item === 'toggle_status') {
+            $id_alvo_item = intval($_POST['id_alvo_item']);
+            
+            // Verifica o status do item e da categoria a qual ele pertence
+            $res = $conn->query("SELECT i.status_item, c.status_cat FROM Item i LEFT JOIN Categoria c ON i.id_cat = c.id_cat WHERE i.id_item = $id_alvo_item");
+            $dados = $res->fetch_assoc();
+            
+            $status_atual_item = $dados['status_item'] ?? 'ativo';
+            $status_atual_cat = $dados['status_cat'] ?? 'ativo';
+
+            if ($status_atual_item === 'inativo' && $status_atual_cat === 'inativo') {
+                $_SESSION['msg_erro_lab'] = "ERRO: Não é possível ativar o item. Reative a categoria dele primeiro!";
+                redirectLab('view-lab', 'tab-estoque');
+            } else {
+                $conn->query("UPDATE Item SET status_item = IF(status_item='ativo' OR status_item IS NULL, 'inativo', 'ativo') WHERE id_item = $id_alvo_item");
+                $_SESSION['msg_sucesso_lab'] = "Visibilidade do item alterada com sucesso!";
+                redirectLab('view-lab', 'tab-estoque');
+            }
+
         } elseif ($acao_item === 'editar') {
             $id_alvo_item = intval($_POST['id_alvo_item']);
             $nome = trim($_POST['edit_item_nome']);
@@ -273,6 +292,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_categoria'])) {
                 $stmt_edit_cat->execute();
                 
                 $_SESSION['msg_sucesso_lab'] = "Categoria atualizada!";
+                redirectLab('view-lab', 'tab-categorias');
+            }
+
+        } elseif ($acao_cat === 'toggle_status') {
+            $id_cat = intval($_POST['id_alvo_cat']);
+            
+            $res = $conn->query("SELECT status_cat FROM Categoria WHERE id_cat = $id_cat");
+            $cat = $res->fetch_assoc();
+            $status_atual_cat = $cat['status_cat'] ?? 'ativo';
+            
+            if ($status_atual_cat === 'ativo') {
+                // Se vai desativar, verifica se existem itens ativos amarrados a ela
+                $res_itens = $conn->query("SELECT COUNT(*) as qtd FROM Item WHERE id_cat = $id_cat AND (status_item = 'ativo' OR status_item IS NULL)");
+                $qtd = $res_itens->fetch_assoc()['qtd'];
+                
+                if ($qtd > 0) {
+                    $_SESSION['msg_erro_lab'] = "ERRO: Esta categoria possui $qtd item(ns) ativo(s). Desative-os primeiro!";
+                    redirectLab('view-lab', 'tab-categorias');
+                } else {
+                    $conn->query("UPDATE Categoria SET status_cat = 'inativo' WHERE id_cat = $id_cat");
+                    $_SESSION['msg_sucesso_lab'] = "Categoria desativada com sucesso!";
+                    redirectLab('view-lab', 'tab-categorias');
+                }
+            } else {
+                // Apenas ativa
+                $conn->query("UPDATE Categoria SET status_cat = 'ativo' WHERE id_cat = $id_cat");
+                $_SESSION['msg_sucesso_lab'] = "Categoria ativada com sucesso!";
                 redirectLab('view-lab', 'tab-categorias');
             }
 
@@ -549,7 +595,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
 
             <div class="table-responsive-wrapper">
                 <table class="stock-table">
-                    <thead><tr><th>Foto</th><th>Nome do Item</th><th>Categoria</th><th>Quantidade</th><th>Ações</th></tr></thead>
+                    <thead><tr><th>Foto</th><th>Nome do Item</th><th>Categoria</th><th>Quantidade</th><th>Status</th><th>Ações</th></tr></thead>
                     <tbody>
                         <?php
                         $res_itens = $conn->query("SELECT i.*, c.Nome as CategoriaNome FROM Item i LEFT JOIN Categoria c ON i.id_cat = c.id_cat ORDER BY i.Nome ASC");
@@ -559,6 +605,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
                                 $nome_item = htmlspecialchars($item['Nome']);
                                 $cat_item = htmlspecialchars($item['CategoriaNome'] ?? 'Sem Categoria');
                                 $qntd_item = $item['Qntd'];
+                                $status_item = $item['status_item'] ?? 'ativo';
                                 $img_item = "uploads/" . htmlspecialchars($item['Imagem']);
                                 
                                 if (empty($item['Imagem']) || !file_exists($img_item)) {
@@ -575,13 +622,21 @@ while ($cat = $res_categorias->fetch_assoc()) {
                                 <td><strong><?php echo $nome_item; ?></strong></td>
                                 <td><span style="background:#f0f2f5; padding:4px 8px; border-radius:6px; font-size:0.85rem;"><?php echo $cat_item; ?></span></td>
                                 <td><?php echo $qntd_item; ?> <?php if($qntd_item <= 0): ?><span class="badge out-of-stock-badge">Esgotado</span><?php endif; ?></td>
+                                <td style="color: <?php echo ($status_item === 'ativo') ? '#10ac84' : '#dc3545'; ?>; font-weight: bold;">
+                                    <?php echo ucfirst($status_item); ?>
+                                </td>
                                 <td class="action-buttons">
-                                    <button type="button" class="btn-action edit" data-info="<?php echo $dados_item_json; ?>" onclick="abrirModalEditItem(this)"><i class="bi bi-pencil-square"></i> Editar</button>
-                                    <button type="button" class="btn-action delete" onclick="acaoItem('excluir', <?php echo $id_item; ?>)"><i class="bi bi-trash"></i> Excluir</button>
+                                    <button type="button" class="btn-action edit" data-info="<?php echo $dados_item_json; ?>" onclick="abrirModalEditItem(this)" title="Editar"><i class="bi bi-pencil-square"></i></button>
+                                    
+                                    <?php $btn_status_icon = ($status_item === 'ativo') ? 'bi-eye-slash' : 'bi-eye'; ?>
+                                    <?php $btn_status_color = ($status_item === 'ativo') ? '#e67e22' : '#10ac84'; ?>
+                                    <button type="button" class="btn-action" style="background: <?php echo $btn_status_color; ?>; color: white;" onclick="acaoItem('toggle_status', <?php echo $id_item; ?>)" title="<?php echo ($status_item === 'ativo') ? 'Desativar Visibilidade' : 'Ativar Visibilidade'; ?>"><i class="bi <?php echo $btn_status_icon; ?>"></i></button>
+                                    
+                                    <button type="button" class="btn-action delete" onclick="acaoItem('excluir', <?php echo $id_item; ?>)" title="Excluir"><i class="bi bi-trash"></i></button>
                                 </td>
                             </tr>
                         <?php endwhile; else: ?>
-                            <tr><td colspan="5" style="text-align:center; padding: 20px;">Nenhum item cadastrado no estoque.</td></tr>
+                            <tr><td colspan="6" style="text-align:center; padding: 20px;">Nenhum item cadastrado no estoque.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -658,11 +713,12 @@ while ($cat = $res_categorias->fetch_assoc()) {
             
             <div class="table-responsive-wrapper">
                 <table class="stock-table">
-                    <thead><tr><th>Nome da Categoria</th><th>Descrição</th><th>Ações</th></tr></thead>
+                    <thead><tr><th>Nome da Categoria</th><th>Descrição</th><th>Status</th><th>Ações</th></tr></thead>
                     <tbody>
                         <?php
                         if (count($categorias_array) > 0):
                             foreach ($categorias_array as $cat):
+                                $status_cat = $cat['status_cat'] ?? 'ativo';
                                 $dados_cat_json = htmlspecialchars(json_encode([
                                     'id_cat' => $cat['id_cat'], 
                                     'Nome' => $cat['Nome'], 
@@ -672,13 +728,21 @@ while ($cat = $res_categorias->fetch_assoc()) {
                             <tr>
                                 <td><strong><?php echo htmlspecialchars($cat['Nome']); ?></strong></td>
                                 <td><?php echo htmlspecialchars($cat['Descricao_cat']); ?></td>
+                                <td style="color: <?php echo ($status_cat === 'ativo') ? '#10ac84' : '#dc3545'; ?>; font-weight: bold;">
+                                    <?php echo ucfirst($status_cat); ?>
+                                </td>
                                 <td class="action-buttons">
-                                    <button type="button" class="btn-action edit" data-info="<?php echo $dados_cat_json; ?>" onclick="abrirModalEditCategoria(this)"><i class="bi bi-pencil-square"></i> Editar</button>
-                                    <button type="button" class="btn-action delete" onclick="acaoCategoria('excluir', <?php echo $cat['id_cat']; ?>)"><i class="bi bi-trash"></i> Excluir</button>
+                                    <button type="button" class="btn-action edit" data-info="<?php echo $dados_cat_json; ?>" onclick="abrirModalEditCategoria(this)" title="Editar"><i class="bi bi-pencil-square"></i></button>
+                                    
+                                    <?php $btn_cat_icon = ($status_cat === 'ativo') ? 'bi-eye-slash' : 'bi-eye'; ?>
+                                    <?php $btn_cat_color = ($status_cat === 'ativo') ? '#e67e22' : '#10ac84'; ?>
+                                    <button type="button" class="btn-action" style="background: <?php echo $btn_cat_color; ?>; color: white;" onclick="acaoCategoria('toggle_status', <?php echo $cat['id_cat']; ?>)" title="<?php echo ($status_cat === 'ativo') ? 'Desativar Visibilidade' : 'Ativar Visibilidade'; ?>"><i class="bi <?php echo $btn_cat_icon; ?>"></i></button>
+                                    
+                                    <button type="button" class="btn-action delete" onclick="acaoCategoria('excluir', <?php echo $cat['id_cat']; ?>)" title="Excluir"><i class="bi bi-trash"></i></button>
                                 </td>
                             </tr>
                         <?php endforeach; else: ?>
-                            <tr><td colspan="3" style="text-align:center; padding: 20px;">Nenhuma categoria cadastrada.</td></tr>
+                            <tr><td colspan="4" style="text-align:center; padding: 20px;">Nenhuma categoria cadastrada.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -937,6 +1001,17 @@ while ($cat = $res_categorias->fetch_assoc()) {
     </div>
 </div>
 
+<div id="modalConfirmacao" class="modal-overlay">
+    <div class="modal-content">
+        <h3 class="modal-heading-red" id="modal-confirm-title" style="margin-top:0;"><i class="bi bi-exclamation-triangle"></i> Atenção</h3>
+        <p id="modal-confirm-msg" style="margin-bottom:15px; color:#555; text-align:center; font-size: 1.1rem;">Tem certeza?</p>
+        <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%;">
+            <button class="btn-cancel" onclick="fecharModalConfirmacao()">Cancelar</button>
+            <button class="btn-modal-confirm-delete" id="btn-modal-confirmar" onclick="executarAcaoConfirmada()">Confirmar</button>
+        </div>
+    </div>
+</div>
+
 <div id="modalEditCategoria" class="modal-overlay">
     <div class="modal-content form-container" style="max-width: 500px;">
         <h3 class="form-section-title"><i class="bi bi-tags"></i> Editar Categoria</h3>
@@ -1130,7 +1205,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
                 if (!emptyMsgRow) {
                     emptyMsgRow = document.createElement('tr');
                     emptyMsgRow.id = 'empty-estoque-msg';
-                    emptyMsgRow.innerHTML = '<td colspan="5" style="text-align:center; padding: 30px; color:#666;"><i class="bi bi-search" style="font-size:2rem; display:block; margin-bottom:10px;"></i>Nenhum item encontrado com estes filtros.</td>';
+                    emptyMsgRow.innerHTML = '<td colspan="6" style="text-align:center; padding: 30px; color:#666;"><i class="bi bi-search" style="font-size:2rem; display:block; margin-bottom:10px;"></i>Nenhum item encontrado com estes filtros.</td>';
                     tbody.appendChild(emptyMsgRow);
                 }
                 emptyMsgRow.style.display = '';
@@ -1303,21 +1378,75 @@ while ($cat = $res_categorias->fetch_assoc()) {
         form.submit();
     }
 
-    function acaoUsuario(acao, id) {
-        if (acao === 'excluir' && !confirm("Tem certeza que deseja apagar este utilizador DEFINITIVAMENTE?")) return;
-        if (acao === 'bloquear' && !confirm("Tem certeza que deseja mudar o status de bloqueio deste utilizador?")) return;
-        enviarAcaoDinamicamente('acao_usuario', acao, 'id_alvo', id);
+    /* === LÓGICA DE CONFIRMAÇÃO MODALIZADA === */
+    let acaoPendente = null;
+
+    function abrirModalConfirmacao(tipo, acao, id) {
+        acaoPendente = { tipo, acao, id };
+        const titulo = document.getElementById('modal-confirm-title');
+        const msg = document.getElementById('modal-confirm-msg');
+        const btnConfirmar = document.getElementById('btn-modal-confirmar');
+
+        titulo.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Atenção';
+        
+        if (tipo === 'item') {
+            if (acao === 'excluir') {
+                msg.innerText = "Tem certeza que deseja apagar este ITEM do estoque DEFINITIVAMENTE?";
+                btnConfirmar.innerText = "Excluir Item";
+                btnConfirmar.style.backgroundColor = "#dc3545"; // Vermelho
+            } else if (acao === 'toggle_status') {
+                msg.innerText = "Deseja alterar a visibilidade deste item no catálogo?";
+                btnConfirmar.innerText = "Alterar Visibilidade";
+                btnConfirmar.style.backgroundColor = "#0f006d"; // Azul
+            }
+        } else if (tipo === 'categoria') {
+            if (acao === 'excluir') {
+                msg.innerText = "ATENÇÃO: Deseja realmente apagar esta CATEGORIA?\nItens vinculados a ela poderão impedir a exclusão.";
+                btnConfirmar.innerText = "Excluir Categoria";
+                btnConfirmar.style.backgroundColor = "#dc3545"; // Vermelho
+            } else if (acao === 'toggle_status') {
+                msg.innerText = "Deseja alterar a visibilidade desta categoria no catálogo?";
+                btnConfirmar.innerText = "Alterar Visibilidade";
+                btnConfirmar.style.backgroundColor = "#0f006d"; // Azul
+            }
+        } else if (tipo === 'usuario') {
+            if (acao === 'excluir') {
+                msg.innerText = "Tem certeza que deseja apagar este utilizador DEFINITIVAMENTE?";
+                btnConfirmar.innerText = "Excluir Utilizador";
+                btnConfirmar.style.backgroundColor = "#dc3545"; // Vermelho
+            } else if (acao === 'bloquear') {
+                msg.innerText = "Tem certeza que deseja mudar o status de bloqueio deste utilizador?";
+                btnConfirmar.innerText = "Alterar Status";
+                btnConfirmar.style.backgroundColor = "#0f006d"; // Azul
+            }
+        }
+
+        document.getElementById('modalConfirmacao').style.display = 'flex';
     }
 
-    function acaoItem(acao, id) {
-        if (acao === 'excluir' && !confirm("Tem certeza que deseja apagar este ITEM do estoque DEFINITIVAMENTE?")) return;
-        enviarAcaoDinamicamente('acao_item', acao, 'id_alvo_item', id);
+    function fecharModalConfirmacao() {
+        document.getElementById('modalConfirmacao').style.display = 'none';
+        acaoPendente = null;
     }
 
-    function acaoCategoria(acao, id) {
-        if (acao === 'excluir' && !confirm("ATENÇÃO: Deseja realmente apagar esta CATEGORIA?\nItens vinculados a ela poderão impedir a exclusão.")) return;
-        enviarAcaoDinamicamente('acao_categoria', acao, 'id_alvo_cat', id);
+    function executarAcaoConfirmada() {
+        if (!acaoPendente) return;
+        let { tipo, acao, id } = acaoPendente;
+        fecharModalConfirmacao();
+
+        if (tipo === 'item') {
+            enviarAcaoDinamicamente('acao_item', acao, 'id_alvo_item', id);
+        } else if (tipo === 'categoria') {
+            enviarAcaoDinamicamente('acao_categoria', acao, 'id_alvo_cat', id);
+        } else if (tipo === 'usuario') {
+            enviarAcaoDinamicamente('acao_usuario', acao, 'id_alvo', id);
+        }
     }
+
+    function acaoItem(acao, id) { abrirModalConfirmacao('item', acao, id); }
+    function acaoCategoria(acao, id) { abrirModalConfirmacao('categoria', acao, id); }
+    function acaoUsuario(acao, id) { abrirModalConfirmacao('usuario', acao, id); }
+    /* ========================================= */
 
     function abrirModalEditUser(btn) {
         try {
@@ -1361,7 +1490,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-        const modaisParaMover = ['modal-recusa', 'modalEditCategoria', 'modalEditItem', 'modalEditUser'];
+        const modaisParaMover = ['modal-recusa', 'modalEditCategoria', 'modalEditItem', 'modalEditUser', 'modalConfirmacao'];
         modaisParaMover.forEach(id => {
             const modal = document.getElementById(id);
             if (modal) { document.body.appendChild(modal); }
