@@ -188,7 +188,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_item'])) {
         } elseif ($acao_item === 'toggle_status') {
             $id_alvo_item = intval($_POST['id_alvo_item']);
             
-            // Verifica o status do item e da categoria a qual ele pertence
+           
             $res = $conn->query("SELECT i.status_item, c.status_cat FROM Item i LEFT JOIN Categoria c ON i.id_cat = c.id_cat WHERE i.id_item = $id_alvo_item");
             $dados = $res->fetch_assoc();
             
@@ -303,7 +303,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_categoria'])) {
             $status_atual_cat = $cat['status_cat'] ?? 'ativo';
             
             if ($status_atual_cat === 'ativo') {
-                // Se vai desativar, verifica se existem itens ativos amarrados a ela
+               
                 $res_itens = $conn->query("SELECT COUNT(*) as qtd FROM Item WHERE id_cat = $id_cat AND (status_item = 'ativo' OR status_item IS NULL)");
                 $qtd = $res_itens->fetch_assoc()['qtd'];
                 
@@ -316,7 +316,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_categoria'])) {
                     redirectLab('view-lab', 'tab-categorias');
                 }
             } else {
-                // Apenas ativa
+                
                 $conn->query("UPDATE Categoria SET status_cat = 'ativo' WHERE id_cat = $id_cat");
                 $_SESSION['msg_sucesso_lab'] = "Categoria ativada com sucesso!";
                 redirectLab('view-lab', 'tab-categorias');
@@ -1393,31 +1393,31 @@ while ($cat = $res_categorias->fetch_assoc()) {
             if (acao === 'excluir') {
                 msg.innerText = "Tem certeza que deseja apagar este ITEM do estoque DEFINITIVAMENTE?";
                 btnConfirmar.innerText = "Excluir Item";
-                btnConfirmar.style.backgroundColor = "#dc3545"; // Vermelho
+                btnConfirmar.style.backgroundColor = "#0f006d"; 
             } else if (acao === 'toggle_status') {
                 msg.innerText = "Deseja alterar a visibilidade deste item no catálogo?";
                 btnConfirmar.innerText = "Alterar Visibilidade";
-                btnConfirmar.style.backgroundColor = "#0f006d"; // Azul
+                btnConfirmar.style.backgroundColor = "#0f006d"; 
             }
         } else if (tipo === 'categoria') {
             if (acao === 'excluir') {
                 msg.innerText = "ATENÇÃO: Deseja realmente apagar esta CATEGORIA?\nItens vinculados a ela poderão impedir a exclusão.";
                 btnConfirmar.innerText = "Excluir Categoria";
-                btnConfirmar.style.backgroundColor = "#dc3545"; // Vermelho
+                btnConfirmar.style.backgroundColor = "#0f006d"; 
             } else if (acao === 'toggle_status') {
                 msg.innerText = "Deseja alterar a visibilidade desta categoria no catálogo?";
                 btnConfirmar.innerText = "Alterar Visibilidade";
-                btnConfirmar.style.backgroundColor = "#0f006d"; // Azul
+                btnConfirmar.style.backgroundColor = "#0f006d"; 
             }
         } else if (tipo === 'usuario') {
             if (acao === 'excluir') {
                 msg.innerText = "Tem certeza que deseja apagar este utilizador DEFINITIVAMENTE?";
                 btnConfirmar.innerText = "Excluir Utilizador";
-                btnConfirmar.style.backgroundColor = "#dc3545"; // Vermelho
+                btnConfirmar.style.backgroundColor = "#0f006d"; 
             } else if (acao === 'bloquear') {
                 msg.innerText = "Tem certeza que deseja mudar o status de bloqueio deste utilizador?";
                 btnConfirmar.innerText = "Alterar Status";
-                btnConfirmar.style.backgroundColor = "#0f006d"; // Azul
+                btnConfirmar.style.backgroundColor = "#0f006d";
             }
         }
 
