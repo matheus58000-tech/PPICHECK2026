@@ -18,9 +18,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $_SESSION['codigo_verificacao'] = $codigo;
         $_SESSION['acao_verificacao'] = 'recuperacao';
 
-        enviarCodigoEmail($email, $codigo);
-
+        session_write_close();
         header("Location: verificacao.php");
+        @enviarCodigoEmail($email, $codigo);
         exit();
     } else {
         $_SESSION['erro_campo'] = "recuperacao";
