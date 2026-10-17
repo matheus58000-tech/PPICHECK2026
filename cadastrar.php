@@ -45,19 +45,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $erros['cad_senha'] = "As senhas não coincidem.";
     }
 
+    $cpf_limpo = preg_replace('/[^0-9]/', '', $cpf);
+
+    $stmt_check = $conn->prepare("SELECT id_user, Email, CPF, Matricula FROM Usuarios WHERE CPF = ? OR Matricula = ? OR Email = ?");
+    $stmt_check->bind_param("sss", $cpf_limpo, $matricula, $email);
+    $stmt_check->execute();
+    $result_check = $stmt_check->get_result();
+    
+    if ($result_check->num_rows > 0) {
+        while ($row = $result_check->fetch_assoc()) {
+            if ($row['Email'] === $email) {
+                $erros['cad_email'] = "Este e-mail já está cadastrado no sistema.";
+            }
+            if ($row['CPF'] === $cpf_limpo) {
+                $erros['cad_cpf'] = "Este CPF já está cadastrado.";
+            }
+            if ($row['Matricula'] === $matricula) {
+                $erros['cad_matricula'] = "Esta matrícula já está cadastrada.";
+            }
+        }
+    }
+    $stmt_check->close();
+
     if (count($erros) > 0) {
         $_SESSION['erros_cadastro'] = $erros;
         header("Location: index.php"); 
-        exit();
-    }
-
-    $cpf_limpo = preg_replace('/[^0-9]/', '', $cpf);
-    $stmt = $conn->prepare("SELECT id_user FROM Usuarios WHERE CPF = ? OR Matricula = ? OR Email = ?");
-    $stmt->bind_param("sss", $cpf_limpo, $matricula, $email);
-    $stmt->execute();
-    if ($stmt->get_result()->num_rows > 0) {
-        $_SESSION['erros_cadastro']['geral'] = "CPF, Matrícula ou E-mail já estão em uso.";
-        header("Location: index.php");
         exit();
     }
 
