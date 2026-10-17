@@ -112,6 +112,7 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
                         <div class="input-row">
                             <div class="input-group">
                                 <input type="text" id="cpf-input" name="cpf" placeholder="CPF" maxlength="14" required class="<?php echo isset($erros_cadastro['cad_cpf']) ? 'input-error' : ''; ?>">
+                                <div id="cpf-realtime-feedback" style="font-size: 0.8rem; margin-top: 4px; font-weight: bold;"></div>
                                 <?php if(isset($erros_cadastro['cad_cpf'])): ?>
                                     <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['cad_cpf']; ?></div>
                                 <?php endif; ?>
@@ -159,7 +160,7 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
                             <i class="bi bi-eye toggle-password"></i>
                         </div>
 
-                        <button type="submit" class="btn-primary" style="margin-top: 10px;">CRIAR</button>
+                        <button type="submit" id="btn-submit-cadastro" class="btn-primary" style="margin-top: 10px;">CRIAR</button>
                     </form>
 
                     <div class="links">
@@ -220,15 +221,65 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
         <?php endif; ?>
 
         const cpfInput = document.getElementById('cpf-input');
+        const feedbackCpf = document.getElementById('cpf-realtime-feedback');
+        const submitCadastroBtn = document.getElementById('btn-submit-cadastro');
+
         if(cpfInput) {
             cpfInput.addEventListener('input', function(e) {
                 let value = e.target.value.replace(/\D/g, ''); 
                 if (value.length > 11) value = value.slice(0, 11); 
-                value = value.replace(/(\d{3})(\d)/, '$1.$2');
-                value = value.replace(/(\d{3})(\d)/, '$1.$2');
-                value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-                e.target.value = value;
+                
+                let maskedValue = value;
+                if (maskedValue.length > 3 && maskedValue.length <= 6) {
+                    maskedValue = maskedValue.replace(/(\d{3})(\d)/, '$1.$2');
+                } else if (maskedValue.length > 6 && maskedValue.length <= 9) {
+                    maskedValue = maskedValue.replace(/(\d{3})(\d{3})(\d)/, '$1.$2.$3');
+                } else if (maskedValue.length > 9) {
+                    maskedValue = maskedValue.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
+                }
+                e.target.value = maskedValue;
+
+                if (value.length === 0) {
+                    feedbackCpf.innerText = '';
+                    cpfInput.style.borderColor = '#ccc';
+                    if (submitCadastroBtn) submitCadastroBtn.disabled = false;
+                    return;
+                }
+
+                if (value.length < 11) {
+                    feedbackCpf.style.color = '#e67e22';
+                    feedbackCpf.innerHTML = '<i class="bi bi-exclamation-circle"></i> Digitando CPF... (' + value.length + '/11 dígitos)';
+                    cpfInput.style.borderColor = '#e67e22';
+                    if (submitCadastroBtn) submitCadastroBtn.disabled = true;
+                } else if (value.length === 11) {
+                    if (validarAlgoritmoCPF(value)) {
+                        feedbackCpf.style.color = '#10ac84';
+                        feedbackCpf.innerHTML = '<i class="bi bi-check-circle-fill"></i> CPF Válido!';
+                        cpfInput.style.borderColor = '#10ac84';
+                        if (submitCadastroBtn) submitCadastroBtn.disabled = false;
+                    } else {
+                        feedbackCpf.style.color = '#dc3545';
+                        feedbackCpf.innerHTML = '<i class="bi bi-x-circle-fill"></i> CPF Inválido!';
+                        cpfInput.style.borderColor = '#dc3545';
+                        if (submitCadastroBtn) submitCadastroBtn.disabled = true;
+                    }
+                }
             });
+        }
+
+        function validarAlgoritmoCPF(strCPF) {
+            if (/^(\d)\1{10}$/.test(strCPF)) return false;
+            let Soma = 0, Resto;
+            for (let i = 1; i <= 9; i++) Soma += parseInt(strCPF.substring(i-1, i)) * (11 - i);
+            Resto = (Soma * 10) % 11;
+            if ((Resto == 10) || (Resto == 11)) Resto = 0;
+            if (Resto != parseInt(strCPF.substring(9, 10))) return false;
+            Soma = 0;
+            for (let i = 1; i <= 10; i++) Soma += parseInt(strCPF.substring(i-1, i)) * (12 - i);
+            Resto = (Soma * 10) % 11;
+            if ((Resto == 10) || (Resto == 11)) Resto = 0;
+            if (Resto != parseInt(strCPF.substring(10, 11))) return false;
+            return true;
         }
 
         const loginCpf = document.getElementById('login-cpf');
