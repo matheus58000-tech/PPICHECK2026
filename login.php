@@ -8,7 +8,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $cpf_limpo = preg_replace('/[^0-9]/', '', $identificador);
     $senha = $_POST['senha'];
 
-    // Adicionamos a coluna "validado" na busca
     $stmt = $conn->prepare("SELECT id_user, Nome, Senha, Tipo_user, status, Email, validado FROM Usuarios WHERE CPF = ?");
     $stmt->bind_param("s", $cpf_limpo);
     $stmt->execute();
@@ -24,9 +23,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             exit();
         }
         
-        if (password_verify($senha, $usuario['Senha'])) {
+        if (is_null($usuario['Senha']) && $usuario['validado'] === 'nao') {
+            $codigo = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
             
-            // Verifica a nova coluna no banco
+            $_SESSION['login_temp'] = [
+                'id_user' => $usuario['id_user'],
+                'Nome' => $usuario['Nome'],
+                'Tipo_user' => $usuario['Tipo_user']
+            ];
+            $_SESSION['codigo_verificacao'] = $codigo;
+            $_SESSION['acao_verificacao'] = 'primeiro_login_criacao_senha';
+            
+            session_write_close();
+            header("Location: verificacao.php");
+            @enviarCodigoEmail($usuario['Email'], $codigo);
+            exit();
+        }
+  
+        if (!is_null($usuario['Senha']) && password_verify($senha, $usuario['Senha'])) {
+            
             if (isset($usuario['validado']) && $usuario['validado'] === 'nao') {
                 $codigo = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
                 
@@ -37,14 +52,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 ];
                 $_SESSION['codigo_verificacao'] = $codigo;
                 $_SESSION['acao_verificacao'] = 'primeiro_login';
-                
-                enviarCodigoEmail($usuario['Email'], $codigo);
-                
-                unset($_SESSION['erro_campo'], $_SESSION['erro_msg']);
+           
+                session_write_close();
                 header("Location: verificacao.php");
+                @enviarCodigoEmail($usuario['Email'], $codigo);
                 exit();
             } 
-            // Se já for validado ('sim'), loga direto
             else {
                 $_SESSION['usuario_id'] = $usuario['id_user'];
                 $_SESSION['usuario_nome'] = $usuario['Nome'];
