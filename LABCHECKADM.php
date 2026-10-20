@@ -329,7 +329,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_categoria'])) {
 
 echo $mensagem_lab;
 
-$res_categorias = $conn->query("SELECT * FROM Categoria ORDER BY Nome ASC");
+$res_categorias = $conn->query("SELECT * FROM Categoria WHERE status_cat = 'ativo' OR status_cat IS NULL ORDER BY Nome ASC");
 $categorias_array = [];
 while ($cat = $res_categorias->fetch_assoc()) {
     $categorias_array[] = $cat;
