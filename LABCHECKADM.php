@@ -58,6 +58,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
                 $email = trim($_POST['edit_email']);
                 $cpf = trim($_POST['edit_cpf']);
                 $tipo = trim($_POST['edit_tipo']);
+                $nova_senha = $_POST['edit_senha'];
 
                 $matricula = ($tipo === 'padrao') ? trim($_POST['edit_matricula']) : null;
                 $siape = ($tipo === 'admin') ? trim($_POST['edit_siape']) : null;
@@ -72,8 +73,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
                     $sub_aba_ativa = "tab-usuarios";
                     $abrir_modal_edit_user = true;
                 } else {
-                    $stmt_edit = $conn->prepare("UPDATE Usuarios SET Nome=?, Email=?, CPF=?, Matricula=?, SIAPE=?, Tipo_user=? WHERE id_user=?");
-                    $stmt_edit->bind_param("ssssssi", $nome, $email, $cpf, $matricula, $siape, $tipo, $id_alvo);
+                    if (!empty($nova_senha)) {
+                        $hash = password_hash($nova_senha, PASSWORD_DEFAULT);
+                        $stmt_edit = $conn->prepare("UPDATE Usuarios SET Nome=?, Email=?, CPF=?, Matricula=?, SIAPE=?, Tipo_user=?, Senha=? WHERE id_user=?");
+                        $stmt_edit->bind_param("sssssssi", $nome, $email, $cpf, $matricula, $siape, $tipo, $hash, $id_alvo);
+                    } else {
+                        $stmt_edit = $conn->prepare("UPDATE Usuarios SET Nome=?, Email=?, CPF=?, Matricula=?, SIAPE=?, Tipo_user=? WHERE id_user=?");
+                        $stmt_edit->bind_param("ssssssi", $nome, $email, $cpf, $matricula, $siape, $tipo, $id_alvo);
+                    }
                     $stmt_edit->execute();
                     $_SESSION['msg_sucesso_lab'] = "Dados do utilizador atualizados com sucesso!";
                     redirectLab('view-lab', 'tab-usuarios');
@@ -85,6 +92,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
                 $nome = trim($_POST['add_nome']);
                 $email = trim($_POST['add_email']);
                 $nascimento = $_POST['add_nascimento'];
+                $senha = $_POST['add_senha'];
+                $confirma = $_POST['add_confirma'];
                 
                 $dinamico = isset($_POST['add_dinamico']) ? trim($_POST['add_dinamico']) : null;
                 $matricula = ($tipo === 'padrao') ? $dinamico : null;
@@ -100,16 +109,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_usuario'])) {
                 if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) $erros_lab['add_email'] = "E-mail inválido.";
                 $data_atual = date("Y-m-d");
                 if (empty($nascimento) || $nascimento > $data_atual) $erros_lab['add_nascimento'] = "Data inválida.";
+                if (empty($senha) || strlen($senha) < 8) $erros_lab['add_senha'] = "Mín. 8 caracteres.";
+                if ($senha !== $confirma) $erros_lab['add_confirma'] = "Senhas não coincidem.";
 
                 if (count($erros_lab) > 0) {
                     $erros_lab['geral'] = "Preencha todos os campos corretamente e tente novamente.";
                     $sub_aba_ativa = "tab-novo-usuario"; 
                 } else {
-                    $stmt_add = $conn->prepare("INSERT INTO Usuarios (Nome, CPF, Matricula, SIAPE, Email, Data_nasc, Senha, Tipo_user) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)");
-                    $stmt_add->bind_param("sssssss", $nome, $cpf, $matricula, $siape, $email, $nascimento, $tipo);
+                    $hash = password_hash($senha, PASSWORD_DEFAULT);
+                    $stmt_add = $conn->prepare("INSERT INTO Usuarios (Nome, CPF, Matricula, SIAPE, Email, Data_nasc, Senha, Tipo_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt_add->bind_param("ssssssss", $nome, $cpf, $matricula, $siape, $email, $nascimento, $hash, $tipo);
                     $stmt_add->execute();
                     
-                    $_SESSION['msg_sucesso_lab'] = "Utilizador cadastrado com sucesso! A senha será definida no primeiro login.";
+                    $_SESSION['msg_sucesso_lab'] = "Utilizador cadastrado com sucesso!";
                     redirectLab('view-lab', 'tab-usuarios'); 
                 }
             }
@@ -176,6 +188,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_item'])) {
         } elseif ($acao_item === 'toggle_status') {
             $id_alvo_item = intval($_POST['id_alvo_item']);
             
+           
             $res = $conn->query("SELECT i.status_item, c.status_cat FROM Item i LEFT JOIN Categoria c ON i.id_cat = c.id_cat WHERE i.id_item = $id_alvo_item");
             $dados = $res->fetch_assoc();
             
@@ -329,7 +342,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_categoria'])) {
 
 echo $mensagem_lab;
 
-$res_categorias = $conn->query("SELECT * FROM Categoria WHERE status_cat = 'ativo' OR status_cat IS NULL ORDER BY Nome ASC");
+$res_categorias = $conn->query("SELECT * FROM Categoria ORDER BY Nome ASC");
 $categorias_array = [];
 while ($cat = $res_categorias->fetch_assoc()) {
     $categorias_array[] = $cat;
@@ -662,11 +675,16 @@ while ($cat = $res_categorias->fetch_assoc()) {
                     <select name="add_item_categoria" required class="<?php echo isset($erros_lab['item_categoria']) ? 'input-error' : ''; ?>">
                         <option value="">Selecione uma Categoria...</option>
                         <?php 
-                        $cat_selecionada = isset($_POST['add_item_categoria']) ? $_POST['add_item_categoria'] : '';
-                        foreach($categorias_array as $cat): 
-                        ?>
-                            <option value="<?php echo $cat['id_cat']; ?>" <?php echo ($cat_selecionada == $cat['id_cat']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($cat['Nome']); ?></option>
-                        <?php endforeach; ?>
+$cat_selecionada = isset($_POST['add_item_categoria']) ? $_POST['add_item_categoria'] : '';
+foreach($categorias_array as $cat): 
+    $status_c = $cat['status_cat'] ?? 'ativo';
+    if ($status_c === 'ativo'): 
+?>
+    <option value="<?php echo $cat['id_cat']; ?>" <?php echo ($cat_selecionada == $cat['id_cat']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($cat['Nome']); ?></option>
+<?php 
+    endif;
+endforeach; 
+?>
                     </select>
                     <?php if(isset($erros_lab['item_categoria'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['item_categoria']; ?></div><?php endif; ?>
                 </div>
@@ -896,7 +914,6 @@ while ($cat = $res_categorias->fetch_assoc()) {
         </div>
     </div>
 
-    
     <div id="tab-novo-usuario" class="spa-tab" style="display: none;">
         <div class="content-area form-container">
             <form id="add-user-form" method="POST" action="FECHECKADM.php" novalidate>
@@ -920,25 +937,21 @@ while ($cat = $res_categorias->fetch_assoc()) {
                     </div>
                     <div class="input-group">
                         <label>CPF</label>
-                        <input type="text" name="add_cpf" id="add_cpf" placeholder="000.000.000-00" maxlength="14" required oninput="validarCpfEmTempoReal(this)" class="<?php echo isset($erros_lab['add_cpf']) ? 'input-error' : ''; ?>" value="<?php echo htmlspecialchars($_POST['add_cpf'] ?? ''); ?>">
-                        <div id="cpf-feedback" style="font-size: 0.8rem; margin-top: 4px; font-weight: bold;"></div>
+                        <input type="text" name="add_cpf" id="add_cpf" placeholder="000.000.000-00" maxlength="14" required class="<?php echo isset($erros_lab['add_cpf']) ? 'input-error' : ''; ?>" value="<?php echo htmlspecialchars($_POST['add_cpf'] ?? ''); ?>">
                         <?php if(isset($erros_lab['add_cpf'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['add_cpf']; ?></div><?php endif; ?>
                     </div>
                 </div>
                 
-                <!-- Campo dinâmico: Exibido apenas para Aluno (Matrícula) ou Admin (SIAPE). Oculto para Responsável -->
-                <div class="input-group full-width" id="grupo-dinamico-add-user" style="display: none;">
-                    <label id="label-dinamico-add-user">Identificação</label>
+                <div class="input-group full-width" id="grupo-dinamico-add-user" style="display: <?php echo (isset($_POST['add_tipo']) && $_POST['add_tipo'] !== '') ? 'block' : 'none'; ?>;">
+                    <label id="label-dinamico-add-user"><?php echo (isset($_POST['add_tipo']) && $_POST['add_tipo'] === 'padrao') ? 'Matrícula' : 'SIAPE'; ?></label>
                     <input type="text" name="add_dinamico" id="input-dinamico-add-user" class="<?php echo isset($erros_lab['add_dinamico']) ? 'input-error' : ''; ?>" value="<?php echo htmlspecialchars($_POST['add_dinamico'] ?? ''); ?>">
                     <?php if(isset($erros_lab['add_dinamico'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['add_dinamico']; ?></div><?php endif; ?>
                 </div>
-
                 <div class="input-group full-width">
                     <label>Nome Completo</label>
                     <input type="text" name="add_nome" required class="<?php echo isset($erros_lab['add_nome']) ? 'input-error' : ''; ?>" value="<?php echo htmlspecialchars($_POST['add_nome'] ?? ''); ?>">
                     <?php if(isset($erros_lab['add_nome'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['add_nome']; ?></div><?php endif; ?>
                 </div>
-
                 <div class="form-row">
                     <div class="input-group">
                         <label>Data de Nascimento</label>
@@ -951,13 +964,21 @@ while ($cat = $res_categorias->fetch_assoc()) {
                         <?php if(isset($erros_lab['add_email'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['add_email']; ?></div><?php endif; ?>
                     </div>
                 </div>
-
-                <div style="background-color: #b5ddfc; color: #0a004a; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 0.9rem; border: 1px solid #b6effb;">
-                    <i class="bi bi-info-circle-fill"></i> A senha de acesso será definida pelo próprio utilizador no seu <strong>primeiro login</strong> no sistema.
+                <h3 class="form-section-title" style="margin-top: 1rem;"><i class="bi bi-lock"></i> Dados de Acesso</h3>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label>Senha</label>
+                        <input type="password" name="add_senha" placeholder="Mín. 8 caracteres" required class="<?php echo isset($erros_lab['add_senha']) ? 'input-error' : ''; ?>">
+                        <?php if(isset($erros_lab['add_senha'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['add_senha']; ?></div><?php endif; ?>
+                    </div>
+                    <div class="input-group">
+                        <label>Confirmação</label>
+                        <input type="password" name="add_confirma" required class="<?php echo isset($erros_lab['add_confirma']) ? 'input-error' : ''; ?>">
+                        <?php if(isset($erros_lab['add_confirma'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['add_confirma']; ?></div><?php endif; ?>
+                    </div>
                 </div>
-
-                <div class="form-actions" style="margin-top: 20px;">
-                    <button type="submit" id="btn-submit-user" class="btn-primary-action"><i class="bi bi-person-plus"></i> Cadastrar Utilizador</button>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary-action"><i class="bi bi-person-plus"></i> Cadastrar Utilizador</button>
                     <button type="button" class="btn-secondary-action" onclick="switchLabTab('tab-usuarios', 'Gerenciamento de Usuários')">Cancelar</button>
                 </div>
             </form>
@@ -970,7 +991,6 @@ while ($cat = $res_categorias->fetch_assoc()) {
     <input type="hidden" name="" id="input-id">
 </form>
 
-<!-- MODAIS -->
 <div id="modal-recusa" class="modal-overlay">
     <div class="modal-content">
         <h3 class="modal-heading-red"><i class="bi bi-exclamation-triangle"></i> Recusar Pedido</h3>
@@ -1004,13 +1024,21 @@ while ($cat = $res_categorias->fetch_assoc()) {
             <input type="hidden" name="acao_categoria" value="editar">
             <input type="hidden" name="id_alvo_cat" id="edit_id_alvo_cat">
             
+            <?php if(isset($erros_lab['geral_edit_cat'])): ?>
+                <div style="background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; font-size: 0.9rem; text-align: center; border: 1px solid #f5c6cb;">
+                    <i class="bi bi-exclamation-triangle-fill"></i> <?php echo $erros_lab['geral_edit_cat']; ?>
+                </div>
+            <?php endif; ?>
+
             <div class="input-group full-width">
                 <label>Nome da Categoria</label>
-                <input type="text" name="edit_cat_nome" id="edit_cat_nome" required>
+                <input type="text" name="edit_cat_nome" id="edit_cat_nome" required class="<?php echo isset($erros_lab['edit_cat_nome']) ? 'input-error' : ''; ?>">
+                <?php if(isset($erros_lab['edit_cat_nome'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['edit_cat_nome']; ?></div><?php endif; ?>
             </div>
             <div class="input-group full-width" style="margin-top:10px;">
                 <label>Descrição</label>
-                <textarea name="edit_cat_desc" id="edit_cat_desc" rows="3" style="width:100%; border-radius:8px; padding:10px; border:1px solid #ccc;" required></textarea>
+                <textarea name="edit_cat_desc" id="edit_cat_desc" rows="3" style="width:100%; border-radius:8px; padding:10px; <?php echo isset($erros_lab['edit_cat_desc']) ? 'border: 2px solid #dc3545 !important; background-color: #fff8f8 !important;' : 'border:1px solid #ccc;'; ?>" required></textarea>
+                <?php if(isset($erros_lab['edit_cat_desc'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['edit_cat_desc']; ?></div><?php endif; ?>
             </div>
             
             <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%;">
@@ -1027,30 +1055,47 @@ while ($cat = $res_categorias->fetch_assoc()) {
         <form method="POST" action="FECHECKADM.php" enctype="multipart/form-data" novalidate style="margin-top: 15px;">
             <input type="hidden" name="acao_item" value="editar">
             <input type="hidden" name="id_alvo_item" id="edit_id_alvo_item">
+
+            <?php if(isset($erros_lab['geral_edit_item'])): ?>
+                <div style="background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; font-size: 0.9rem; text-align: center; border: 1px solid #f5c6cb;">
+                    <i class="bi bi-exclamation-triangle-fill"></i> <?php echo $erros_lab['geral_edit_item']; ?>
+                </div>
+            <?php endif; ?>
             
             <div class="form-row" style="display:flex; gap:10px;">
                 <div class="input-group" style="flex:2;">
                     <label>Nome Do Item</label>
-                    <input type="text" name="edit_item_nome" id="edit_item_nome" required style="width:100%; height:45px;">
+                    <input type="text" name="edit_item_nome" id="edit_item_nome" required style="width:100%; height:45px;" class="<?php echo isset($erros_lab['edit_item_nome']) ? 'input-error' : ''; ?>">
+                    <?php if(isset($erros_lab['edit_item_nome'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['edit_item_nome']; ?></div><?php endif; ?>
                 </div>
                 <div class="input-group" style="flex:1;">
                     <label>Quantidade</label>
-                    <input type="number" name="edit_item_qntd" id="edit_item_qntd" required min="0" style="width:100%; height:45px;">
+                    <input type="number" name="edit_item_qntd" id="edit_item_qntd" required min="0" style="width:100%; height:45px;" class="<?php echo isset($erros_lab['edit_item_qntd']) ? 'input-error' : ''; ?>">
+                    <?php if(isset($erros_lab['edit_item_qntd'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['edit_item_qntd']; ?></div><?php endif; ?>
                 </div>
             </div>
             
             <div class="input-group" style="margin-top:10px;">
                 <label>Categoria</label>
-                <select name="edit_item_categoria" id="edit_item_categoria" required style="width:100%; height:45px; border-radius:5px;">
-                    <?php foreach($categorias_array as $cat): ?>
+                <select name="edit_item_categoria" id="edit_item_categoria" required style="width:100%; height:45px; border-radius:5px;" class="<?php echo isset($erros_lab['edit_item_categoria']) ? 'input-error' : ''; ?>">
+                    <?php 
+                    foreach($categorias_array as $cat): 
+                        $status_c = $cat['status_cat'] ?? 'ativo';
+                        if ($status_c === 'ativo'):
+                    ?>
                         <option value="<?php echo $cat['id_cat']; ?>"><?php echo htmlspecialchars($cat['Nome']); ?></option>
-                    <?php endforeach; ?>
+                    <?php 
+                        endif;
+                    endforeach; 
+                    ?>
                 </select>
+                <?php if(isset($erros_lab['edit_item_categoria'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['edit_item_categoria']; ?></div><?php endif; ?>
             </div>
             
             <div class="input-group" style="margin-top:10px;">
                 <label>Descrição Detalhada</label>
-                <textarea name="edit_item_descricao" id="edit_item_descricao" rows="4" style="width:100%; border-radius:8px; padding:10px; border:1px solid #ccc;" required></textarea>
+                <textarea name="edit_item_descricao" id="edit_item_descricao" rows="4" style="width:100%; border-radius:8px; padding:10px; <?php echo isset($erros_lab['edit_item_descricao']) ? 'border: 2px solid #dc3545 !important; background-color: #fff8f8 !important;' : 'border:1px solid #ccc;'; ?>" required></textarea>
+                <?php if(isset($erros_lab['edit_item_descricao'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['edit_item_descricao']; ?></div><?php endif; ?>
             </div>
 
             <div class="input-group" style="margin-top:10px;">
@@ -1072,11 +1117,17 @@ while ($cat = $res_categorias->fetch_assoc()) {
         <form method="POST" action="FECHECKADM.php" novalidate style="margin-top: 15px;">
             <input type="hidden" name="acao_usuario" value="editar">
             <input type="hidden" name="id_alvo" id="edit_id_alvo">
+
+            <?php if(isset($erros_lab['geral_edit_user'])): ?>
+                <div style="background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; font-size: 0.9rem; text-align: center; border: 1px solid #f5c6cb;">
+                    <i class="bi bi-exclamation-triangle-fill"></i> <?php echo $erros_lab['geral_edit_user']; ?>
+                </div>
+            <?php endif; ?>
             
             <div class="input-row" style="display:flex; gap:10px;">
                 <div class="input-group" style="flex:1;">
                     <label>Tipo de Utilizador</label>
-                    <select name="edit_tipo" id="edit_tipo" required style="width:100%; height:45px; border-radius:5px;">
+                    <select name="edit_tipo" id="edit_tipo" required style="width:100%; height:45px; border-radius:5px;" class="<?php echo isset($erros_lab['edit_tipo']) ? 'input-error' : ''; ?>">
                         <option value="padrao">Padrão (Aluno)</option>
                         <option value="resp">Responsável LEPEP</option>
                         <option value="admin">Admin LEPEP</option>
@@ -1084,29 +1135,40 @@ while ($cat = $res_categorias->fetch_assoc()) {
                 </div>
                 <div class="input-group" style="flex:1;">
                     <label>CPF</label>
-                    <input type="text" name="edit_cpf" id="edit_cpf" style="width:100%; height:45px;">
+                    <input type="text" name="edit_cpf" id="edit_cpf" style="width:100%; height:45px;" class="<?php echo isset($erros_lab['edit_cpf']) ? 'input-error' : ''; ?>">
+                    <?php if(isset($erros_lab['edit_cpf'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['edit_cpf']; ?></div><?php endif; ?>
                 </div>
             </div>
             
             <div class="input-row" style="display:flex; gap:10px; margin-top:10px;">
                 <div class="input-group" style="flex:1;">
                     <label>Matrícula</label>
-                    <input type="text" name="edit_matricula" id="edit_matricula" style="width:100%; height:45px;">
+                    <input type="text" name="edit_matricula" id="edit_matricula" style="width:100%; height:45px;" class="<?php echo isset($erros_lab['edit_matricula']) ? 'input-error' : ''; ?>">
                 </div>
                 <div class="input-group" style="flex:1;">
                     <label>SIAPE</label>
-                    <input type="text" name="edit_siape" id="edit_siape" style="width:100%; height:45px;">
+                    <input type="text" name="edit_siape" id="edit_siape" style="width:100%; height:45px;" class="<?php echo isset($erros_lab['edit_siape']) ? 'input-error' : ''; ?>">
                 </div>
             </div>
             
             <div class="input-group" style="margin-top:10px;">
                 <label>Nome Completo</label>
-                <input type="text" name="edit_nome" id="edit_nome" required style="width:100%; height:45px;">
+                <input type="text" name="edit_nome" id="edit_nome" required style="width:100%; height:45px;" class="<?php echo isset($erros_lab['edit_nome']) ? 'input-error' : ''; ?>">
+                <?php if(isset($erros_lab['edit_nome'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['edit_nome']; ?></div><?php endif; ?>
             </div>
 
             <div class="input-group" style="margin-top:10px;">
                 <label>E-mail</label>
-                <input type="email" name="edit_email" id="edit_email" required style="width:100%; height:45px;">
+                <input type="email" name="edit_email" id="edit_email" required style="width:100%; height:45px;" class="<?php echo isset($erros_lab['edit_email']) ? 'input-error' : ''; ?>">
+                <?php if(isset($erros_lab['edit_email'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['edit_email']; ?></div><?php endif; ?>
+            </div>
+
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ccc;">
+
+            <div class="input-group">
+                <label>Forçar Nova Senha (deixe vazio para não alterar)</label>
+                <input type="password" name="edit_senha" placeholder="Digite apenas se quiser redefinir" style="width:100%; height:45px;" class="<?php echo isset($erros_lab['edit_senha']) ? 'input-error' : ''; ?>">
+                <?php if(isset($erros_lab['edit_senha'])): ?><div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_lab['edit_senha']; ?></div><?php endif; ?>
             </div>
 
             <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%;">
@@ -1118,100 +1180,22 @@ while ($cat = $res_categorias->fetch_assoc()) {
 </div>
 
 <script>
-    
-    function validarCpfEmTempoReal(input) {
-        let valor = input.value.replace(/\D/g, '');
-        const feedback = document.getElementById('cpf-feedback');
-        const submitBtn = document.getElementById('btn-submit-user');
-
-        if (valor.length > 3 && valor.length <= 6) {
-            valor = valor.substring(0, 3) + '.' + valor.substring(3);
-        } else if (valor.length > 6 && valor.length <= 9) {
-            valor = valor.substring(0, 3) + '.' + valor.substring(3, 6) + '.' + valor.substring(6);
-        } else if (valor.length > 9) {
-            valor = valor.substring(0, 3) + '.' + valor.substring(3, 6) + '.' + valor.substring(6, 9) + '-' + valor.substring(9, 11);
-        }
-        input.value = valor;
-
-        const apenasNumeros = valor.replace(/\D/g, '');
-
-        if (apenasNumeros.length === 0) {
-            feedback.innerText = '';
-            input.style.borderColor = '#ccc';
-            if(submitBtn) submitBtn.disabled = false;
-            return;
-        }
-
-        if (apenasNumeros.length < 11) {
-            feedback.style.color = '#e67e22';
-            feedback.innerHTML = '<i class="bi bi-exclamation-circle"></i> Digitando CPF... (' + apenasNumeros.length + '/11 dígitos)';
-            input.style.borderColor = '#e67e22';
-        } else if (apenasNumeros.length === 11) {
-            if (validarAlgoritmoCPF(apenasNumeros)) {
-                feedback.style.color = '#10ac84';
-                feedback.innerHTML = '<i class="bi bi-check-circle-fill"></i> CPF Válido!';
-                input.style.borderColor = '#10ac84';
-                if(submitBtn) submitBtn.disabled = false;
-            } else {
-                feedback.style.color = '#dc3545';
-                feedback.innerHTML = '<i class="bi bi-x-circle-fill"></i> CPF Inválido!';
-                input.style.borderColor = '#dc3545';
-            }
-        } else {
-            input.value = apenasNumeros.substring(0, 11);
-        }
-    }
-
-    function validarAlgoritmoCPF(strCPF) {
-        if (/^(\d)\1{10}$/.test(strCPF)) return false;
-        let Soma = 0, Resto;
-        for (let i = 1; i <= 9; i++) Soma += parseInt(strCPF.substring(i-1, i)) * (11 - i);
-        Resto = (Soma * 10) % 11;
-        if ((Resto == 10) || (Resto == 11)) Resto = 0;
-        if (Resto != parseInt(strCPF.substring(9, 10))) return false;
-        Soma = 0;
-        for (let i = 1; i <= 10; i++) Soma += parseInt(strCPF.substring(i-1, i)) * (12 - i);
-        Resto = (Soma * 10) % 11;
-        if ((Resto == 10) || (Resto == 11)) Resto = 0;
-        if (Resto != parseInt(strCPF.substring(10, 11))) return false;
-        return true;
-    }
-
-    
-    function mudarCampoDinamicoAddUser(tipo) {
-        const grupo = document.getElementById('grupo-dinamico-add-user');
-        const label = document.getElementById('label-dinamico-add-user');
-        const input = document.getElementById('input-dinamico-add-user');
-
-        if (tipo === 'padrao') {
-            grupo.style.display = 'block';
-            label.innerText = 'Matrícula (10 números)';
-            input.required = true;
-        } else if (tipo === 'admin') {
-            grupo.style.display = 'block';
-            label.innerText = 'SIAPE (7 números)';
-            input.required = true;
-        } else {
-            
-            grupo.style.display = 'none';
-            input.required = false;
-            input.value = '';
-        }
-    }
-
     document.addEventListener('DOMContentLoaded', function() {
         const searchInput = document.getElementById('estoque-search');
         const categoryFilter = document.getElementById('estoque-category-filter');
         
         function filterEstoque() {
             if (!searchInput || !categoryFilter) return;
+            
             const searchTerm = searchInput.value.toLowerCase().trim();
             const selectedCategory = categoryFilter.value.toLowerCase();
             const rows = document.querySelectorAll('#tab-estoque .stock-table tbody tr');
             
             let visibleCount = 0;
+
             rows.forEach(row => {
                 if (row.cells.length === 1) return; 
+
                 const itemName = row.querySelector('td:nth-child(2) strong').textContent.toLowerCase();
                 const itemCategory = row.querySelector('td:nth-child(3) span').textContent.toLowerCase();
                 
@@ -1225,6 +1209,21 @@ while ($cat = $res_categorias->fetch_assoc()) {
                     row.style.display = 'none';
                 }
             });
+            
+            let emptyMsgRow = document.getElementById('empty-estoque-msg');
+            const tbody = document.querySelector('#tab-estoque .stock-table tbody');
+            
+            if (visibleCount === 0 && rows.length > 0 && rows[0].cells.length > 1) {
+                if (!emptyMsgRow) {
+                    emptyMsgRow = document.createElement('tr');
+                    emptyMsgRow.id = 'empty-estoque-msg';
+                    emptyMsgRow.innerHTML = '<td colspan="6" style="text-align:center; padding: 30px; color:#666;"><i class="bi bi-search" style="font-size:2rem; display:block; margin-bottom:10px;"></i>Nenhum item encontrado com estes filtros.</td>';
+                    tbody.appendChild(emptyMsgRow);
+                }
+                emptyMsgRow.style.display = '';
+            } else if (emptyMsgRow) {
+                emptyMsgRow.style.display = 'none';
+            }
         }
 
         if (searchInput) searchInput.addEventListener('input', filterEstoque);
@@ -1235,24 +1234,53 @@ while ($cat = $res_categorias->fetch_assoc()) {
         
         function filterUsuarios() {
             if (!userSearchInput || !userStatusFilter) return;
+            
             const searchTerm = userSearchInput.value.toLowerCase().trim();
             const selectedStatus = userStatusFilter.value.toLowerCase();
             const rows = document.querySelectorAll('#tab-usuarios .stock-table tbody tr[data-user-id]');
             
+            let visibleCount = 0;
+
             rows.forEach(row => {
                 const userName = row.querySelector('td:nth-child(1)').textContent.toLowerCase();
                 const userEmail = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
                 const userStatus = row.getAttribute('data-status');
+                const userId = row.getAttribute('data-user-id');
+                const detailRow = document.getElementById('row-detail-' + userId);
                 
                 const matchesSearch = userName.includes(searchTerm) || userEmail.includes(searchTerm);
                 const matchesStatus = selectedStatus === 'todos' || userStatus === selectedStatus;
                 
                 if (matchesSearch && matchesStatus) {
                     row.style.display = '';
+                    visibleCount++;
                 } else {
                     row.style.display = 'none';
+                    if(detailRow) {
+                        detailRow.style.setProperty('display', 'none', 'important');
+                        const icon = row.querySelector('.btn-view-pedidos i');
+                        if(icon) {
+                            icon.classList.remove('bi-dash-lg');
+                            icon.classList.add('bi-plus-lg');
+                        }
+                    }
                 }
             });
+            
+            let emptyMsgRow = document.getElementById('empty-user-msg');
+            const tbody = document.querySelector('#tab-usuarios .stock-table tbody');
+            
+            if (visibleCount === 0 && rows.length > 0) {
+                if (!emptyMsgRow) {
+                    emptyMsgRow = document.createElement('tr');
+                    emptyMsgRow.id = 'empty-user-msg';
+                    emptyMsgRow.innerHTML = '<td colspan="5" style="text-align:center; padding: 30px; color:#666;"><i class="bi bi-search" style="font-size:2rem; display:block; margin-bottom:10px;"></i>Nenhum utilizador encontrado.</td>';
+                    tbody.appendChild(emptyMsgRow);
+                }
+                emptyMsgRow.style.display = '';
+            } else if (emptyMsgRow) {
+                emptyMsgRow.style.display = 'none';
+            }
         }
 
         if (userSearchInput) userSearchInput.addEventListener('input', filterUsuarios);
@@ -1315,7 +1343,11 @@ while ($cat = $res_categorias->fetch_assoc()) {
     function togglePedidos(btn, userId) {
         const rowDetail = document.getElementById('row-detail-' + userId);
         const icon = btn.querySelector('i');
-        if (!rowDetail) return;
+
+        if (!rowDetail) {
+            return;
+        }
+
         const estaAberto = rowDetail.classList.contains('row-aberta');
 
         document.querySelectorAll('.row-detalhes').forEach(el => {
@@ -1358,7 +1390,9 @@ while ($cat = $res_categorias->fetch_assoc()) {
         form.submit();
     }
 
+    /* === LÓGICA DE CONFIRMAÇÃO MODALIZADA === */
     let acaoPendente = null;
+
     function abrirModalConfirmacao(tipo, acao, id) {
         acaoPendente = { tipo, acao, id };
         const titulo = document.getElementById('modal-confirm-title');
@@ -1368,15 +1402,37 @@ while ($cat = $res_categorias->fetch_assoc()) {
         titulo.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Atenção';
         
         if (tipo === 'item') {
-            msg.innerText = acao === 'excluir' ? "Tem certeza que deseja apagar este ITEM do estoque DEFINITIVAMENTE?" : "Deseja alterar a visibilidade deste item?";
-            btnConfirmar.innerText = acao === 'excluir' ? "Excluir Item" : "Alterar Visibilidade";
+            if (acao === 'excluir') {
+                msg.innerText = "Tem certeza que deseja apagar este ITEM do estoque DEFINITIVAMENTE?";
+                btnConfirmar.innerText = "Excluir Item";
+                btnConfirmar.style.backgroundColor = "#0f006d"; 
+            } else if (acao === 'toggle_status') {
+                msg.innerText = "Deseja alterar a visibilidade deste item no catálogo?";
+                btnConfirmar.innerText = "Alterar Visibilidade";
+                btnConfirmar.style.backgroundColor = "#0f006d"; 
+            }
         } else if (tipo === 'categoria') {
-            msg.innerText = acao === 'excluir' ? "Deseja realmente apagar esta CATEGORIA?" : "Deseja alterar a visibilidade desta categoria?";
-            btnConfirmar.innerText = acao === 'excluir' ? "Excluir Categoria" : "Alterar Visibilidade";
+            if (acao === 'excluir') {
+                msg.innerText = "ATENÇÃO: Deseja realmente apagar esta CATEGORIA?\nItens vinculados a ela poderão impedir a exclusão.";
+                btnConfirmar.innerText = "Excluir Categoria";
+                btnConfirmar.style.backgroundColor = "#0f006d"; 
+            } else if (acao === 'toggle_status') {
+                msg.innerText = "Deseja alterar a visibilidade desta categoria no catálogo?";
+                btnConfirmar.innerText = "Alterar Visibilidade";
+                btnConfirmar.style.backgroundColor = "#0f006d"; 
+            }
         } else if (tipo === 'usuario') {
-            msg.innerText = acao === 'excluir' ? "Tem certeza que deseja apagar este utilizador?" : "Tem certeza que deseja mudar o status de bloqueio?";
-            btnConfirmar.innerText = acao === 'excluir' ? "Excluir Utilizador" : "Alterar Status";
+            if (acao === 'excluir') {
+                msg.innerText = "Tem certeza que deseja apagar este utilizador DEFINITIVAMENTE?";
+                btnConfirmar.innerText = "Excluir Utilizador";
+                btnConfirmar.style.backgroundColor = "#0f006d"; 
+            } else if (acao === 'bloquear') {
+                msg.innerText = "Tem certeza que deseja mudar o status de bloqueio deste utilizador?";
+                btnConfirmar.innerText = "Alterar Status";
+                btnConfirmar.style.backgroundColor = "#0f006d";
+            }
         }
+
         document.getElementById('modalConfirmacao').style.display = 'flex';
     }
 
@@ -1390,18 +1446,24 @@ while ($cat = $res_categorias->fetch_assoc()) {
         let { tipo, acao, id } = acaoPendente;
         fecharModalConfirmacao();
 
-        if (tipo === 'item') enviarAcaoDinamicamente('acao_item', acao, 'id_alvo_item', id);
-        else if (tipo === 'categoria') enviarAcaoDinamicamente('acao_categoria', acao, 'id_alvo_cat', id);
-        else if (tipo === 'usuario') enviarAcaoDinamicamente('acao_usuario', acao, 'id_alvo', id);
+        if (tipo === 'item') {
+            enviarAcaoDinamicamente('acao_item', acao, 'id_alvo_item', id);
+        } else if (tipo === 'categoria') {
+            enviarAcaoDinamicamente('acao_categoria', acao, 'id_alvo_cat', id);
+        } else if (tipo === 'usuario') {
+            enviarAcaoDinamicamente('acao_usuario', acao, 'id_alvo', id);
+        }
     }
 
     function acaoItem(acao, id) { abrirModalConfirmacao('item', acao, id); }
     function acaoCategoria(acao, id) { abrirModalConfirmacao('categoria', acao, id); }
     function acaoUsuario(acao, id) { abrirModalConfirmacao('usuario', acao, id); }
+    /* ========================================= */
 
     function abrirModalEditUser(btn) {
         try {
-            const dados = JSON.parse(btn.getAttribute('data-info'));
+            const rawData = btn.getAttribute('data-info');
+            const dados = JSON.parse(rawData);
             document.getElementById('edit_id_alvo').value = dados.id;
             document.getElementById('edit_nome').value = dados.nome;
             document.getElementById('edit_email').value = dados.email;
@@ -1410,40 +1472,47 @@ while ($cat = $res_categorias->fetch_assoc()) {
             document.getElementById('edit_siape').value = dados.siape || '';
             document.getElementById('edit_tipo').value = dados.tipo;
             document.getElementById('modalEditUser').style.display = 'flex';
-        } catch(e) {}
+        } catch(e) {
+            alert("Não foi possível carregar os dados para edição.");
+        }
     }
 
     function abrirModalEditItem(btn) {
         try {
-            const dados = JSON.parse(btn.getAttribute('data-info'));
+            const rawData = btn.getAttribute('data-info');
+            const dados = JSON.parse(rawData);
             document.getElementById('edit_id_alvo_item').value = dados.id_item;
             document.getElementById('edit_item_nome').value = dados.Nome;
             document.getElementById('edit_item_categoria').value = dados.id_cat;
             document.getElementById('edit_item_descricao').value = dados.Descricao_Item;
             document.getElementById('edit_item_qntd').value = dados.Qntd;
             document.getElementById('modalEditItem').style.display = 'flex';
-        } catch(e) {}
+        } catch(e) { }
     }
 
     function abrirModalEditCategoria(btn) {
         try {
-            const dados = JSON.parse(btn.getAttribute('data-info'));
+            const rawData = btn.getAttribute('data-info');
+            const dados = JSON.parse(rawData);
             document.getElementById('edit_id_alvo_cat').value = dados.id_cat;
             document.getElementById('edit_cat_nome').value = dados.Nome;
             document.getElementById('edit_cat_desc').value = dados.Descricao_cat;
             document.getElementById('modalEditCategoria').style.display = 'flex';
-        } catch(e) {}
+        } catch(e) { }
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-        ['modal-recusa', 'modalEditCategoria', 'modalEditItem', 'modalEditUser', 'modalConfirmacao'].forEach(id => {
+        const modaisParaMover = ['modal-recusa', 'modalEditCategoria', 'modalEditItem', 'modalEditUser', 'modalConfirmacao'];
+        modaisParaMover.forEach(id => {
             const modal = document.getElementById(id);
-            if (modal) document.body.appendChild(modal);
+            if (modal) { document.body.appendChild(modal); }
         });
     });
 </script>
 
-<?php if (isset($abrir_modal_edit_item) &&$abrir_modal_edit_item): ?>
+<?php 
+if (isset($abrir_modal_edit_item) && $abrir_modal_edit_item): 
+?>
 <script>
     window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('edit_id_alvo_item').value = <?php echo json_encode($_POST['id_alvo_item'] ?? ''); ?>;
@@ -1456,7 +1525,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
 </script>
 <?php endif; ?>
 
-<?php if (isset($abrir_modal_edit_cat) &&$abrir_modal_edit_cat): ?>
+<?php if (isset($abrir_modal_edit_cat) && $abrir_modal_edit_cat): ?>
 <script>
     window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('edit_id_alvo_cat').value = <?php echo json_encode($_POST['id_alvo_cat'] ?? ''); ?>;
@@ -1467,7 +1536,7 @@ while ($cat = $res_categorias->fetch_assoc()) {
 </script>
 <?php endif; ?>
 
-<?php if (isset($abrir_modal_edit_user) &&$abrir_modal_edit_user): ?>
+<?php if (isset($abrir_modal_edit_user) && $abrir_modal_edit_user): ?>
 <script>
     window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('edit_id_alvo').value = <?php echo json_encode($_POST['id_alvo'] ?? ''); ?>;
