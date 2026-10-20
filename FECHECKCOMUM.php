@@ -31,47 +31,41 @@ if ($categorias_disponiveis) {
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
     $aba_ativa = "tab-conta";
     $novo_email = trim($_POST['email']);
-    $senha_atual = $_POST['senha_atual'];
-    $nova_senha = $_POST['nova_senha'];
-    $confirma_senha = $_POST['confirma_senha'];
+    $senha_atual =$_POST['senha_atual'];
+    $nova_senha =$_POST['nova_senha'];
+    $confirma_senha =$_POST['confirma_senha'];
 
-    $stmt_check = $conn->prepare("SELECT Email, Senha FROM Usuarios WHERE id_user = ?");
-    $stmt_check->bind_param("i", $id_usuario);
-    $stmt_check->execute();
-    $user_db = $stmt_check->get_result()->fetch_assoc();
+    $stmt_check =$conn->prepare("SELECT Email, Senha FROM Usuarios WHERE id_user = ?");
+    $stmt_check->bind_param("i", $id_usuario);$stmt_check->execute();
+    $user_db =$stmt_check->get_result()->fetch_assoc();
 
     try {
         if (!empty($nova_senha)) {
-            if ($nova_senha !== $confirma_senha) {
-                $_SESSION['msg_erro'] = "As novas senhas não coincidem.";
-            } else if (!password_verify($senha_atual, $user_db['Senha'])) {
-                $_SESSION['msg_erro'] = "A senha atual está incorreta.";
+            if ($nova_senha !== $confirma_senha) {$_SESSION['msg_erro'] = "As novas senhas não coincidem.";
+            } else if (!password_verify($senha_atual, $user_db['Senha'])) {$_SESSION['msg_erro'] = "A senha atual está incorreta.";
             } else {
                 $senha_hash = password_hash($nova_senha, PASSWORD_DEFAULT);
-                $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ?, Senha = ? WHERE id_user = ?");
-                $stmt_upd->bind_param("ssi", $novo_email, $senha_hash, $id_usuario);
-                $stmt_upd->execute();
-                $_SESSION['msg_sucesso'] = "Dados atualizados com sucesso!";
+                $stmt_upd =$conn->prepare("UPDATE Usuarios SET Email = ?, Senha = ? WHERE id_user = ?");
+                $stmt_upd->bind_param("ssi", $novo_email, $senha_hash,$id_usuario);
+                $stmt_upd->execute();$_SESSION['msg_sucesso'] = "Dados atualizados com sucesso!";
             }
         } else {
-            if ($novo_email !== $user_db['Email']) {
-                $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ? WHERE id_user = ?");
-                $stmt_upd->bind_param("si", $novo_email, $id_usuario);
-                $stmt_upd->execute();
-                $_SESSION['msg_sucesso'] = "E-mail atualizado com sucesso!";
+            if ($novo_email !==$user_db['Email']) {
+                $stmt_upd =$conn->prepare("UPDATE Usuarios SET Email = ? WHERE id_user = ?");
+                $stmt_upd->bind_param("si", $novo_email,$id_usuario);
+                $stmt_upd->execute();$_SESSION['msg_sucesso'] = "E-mail atualizado com sucesso!";
             } else {
                 $_SESSION['msg_warning'] = "Nenhuma alteração foi feita.";
             }
         }
-    } catch (Exception $e) {
-        $_SESSION['msg_erro'] = "Erro: O E-mail digitado já está em uso.";
+    } catch (Exception $e) {$_SESSION['msg_erro'] = "Erro: O E-mail digitado já está em uso.";
     }
     header("Location: FECHECKCOMUM.php?aba=tab-conta");
     exit();
 }
 
 if (isset($_GET['aba'])) {
-    $aba_ativa = $_GET['aba'];
+    $aba_ativa =$_GET['aba'];
 }
 ?>
 <!DOCTYPE html>
@@ -116,7 +110,7 @@ if (isset($_GET['aba'])) {
                     <button type="button" class="filter-option active" data-cat-id="" onclick="selecionarCategoria('', 'Todas')">
                         <i class="bi bi-grid"></i> Todas as Categorias
                     </button>
-                    <?php foreach ($categorias_array as $cat): ?>
+                    <?php foreach ($categorias_array as$cat): ?>
                         <button type="button" class="filter-option" data-cat-id="<?php echo (int)$cat['id_cat']; ?>" onclick="selecionarCategoria('<?php echo (int)$cat['id_cat']; ?>', '<?php echo htmlspecialchars($cat['Nome'], ENT_QUOTES); ?>')">
                             <i class="bi bi-tag"></i> <?php echo htmlspecialchars($cat['Nome']); ?>
                         </button>
@@ -158,15 +152,14 @@ if (isset($_GET['aba'])) {
         
         <div id="tab-catalogo" class="spa-tab" style="<?php echo $aba_ativa === 'tab-catalogo' ? 'display: block;' : 'display: none;'; ?>">
             <div class="item-grid">
-                <?php if ($resultado_itens && $resultado_itens->num_rows > 0): ?>
-                    <?php while($item = $resultado_itens->fetch_assoc()): ?>
+                <?php if ($resultado_itens &&$resultado_itens->num_rows > 0): ?>
+                    <?php while($item =$resultado_itens->fetch_assoc()): ?>
                         <?php 
                             $quantidade = (int)$item['Qntd']; 
                             $indisponivel = ($quantidade <= 0);
                             $imagem_nome = trim($item['Imagem'] ?? '');
                             
-                            if (empty($imagem_nome)) {
-                                $imagem = 'LOGOCHECKSEMDESCR.jpg';
+                            if (empty($imagem_nome)) {$imagem = 'LOGOCHECKSEMDESCR.jpg';
                             } elseif (file_exists($imagem_nome)) {
                                 $imagem = htmlspecialchars($imagem_nome);
                             } elseif (file_exists('uploads/' . $imagem_nome)) {
@@ -249,7 +242,7 @@ if (isset($_GET['aba'])) {
                             <input type="number" id="modal-qty" value="1" min="1">
                         </div>
                         
-                        <?php if (isset($status_exibicao) && $status_exibicao === 'bloqueado'): ?>
+                        <?php if (isset($status_exibicao) &&$status_exibicao === 'bloqueado'): ?>
                             <button class="btn-submit disabled" onclick="showToast('Sua conta está bloqueada pelo Administrador.', 'error')">
                                 <i class="bi bi-slash-circle"></i> Bloqueado
                             </button>
@@ -329,6 +322,22 @@ if (isset($_GET['aba'])) {
         </div>
     </div>
 
+    <!-- Modal de Confirmação Personalizado para o Carrinho -->
+    <div id="modalConfirmCart" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3 class="modal-heading-red" style="margin-top:0; color: #0f006d;">
+                <i class="bi bi-exclamation-triangle"></i> Atenção
+            </h3>
+            <p id="modal-cart-confirm-msg" style="margin-bottom:15px; color:#555; text-align:center; font-size: 1.1rem;">
+                Tem certeza que deseja remover este item do carrinho?
+            </p>
+            <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%;">
+                <button class="btn-cancel" onclick="fecharModalCart()">Cancelar</button>
+                <button class="btn-modal-confirm-delete" id="btn-cart-confirmar" style="background-color: #0f006d; color: white;">Remover</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container"></div>
 
     <script>
@@ -351,13 +360,32 @@ if (isset($_GET['aba'])) {
             showToast('Item adicionado ao carrinho!', 'success');
         }
 
+        function abrirModalCartConfirm(mensagem, callback) {
+            const modal = document.getElementById('modalConfirmCart');
+            const msgEl = document.getElementById('modal-cart-confirm-msg');
+            const btnConfirmar = document.getElementById('btn-cart-confirmar');
+
+            msgEl.innerText = mensagem;
+            modal.style.display = 'flex';
+
+            btnConfirmar.onclick = function() {
+                fecharModalCart();
+                if (callback) callback();
+            };
+        }
+
+        function fecharModalCart() {
+            const modal = document.getElementById('modalConfirmCart');
+            if (modal) modal.style.display = 'none';
+        }
+
         function removeFromCart(itemId) {
-            if (confirm('Tem certeza que deseja excluir este item do carrinho?')) {
+            abrirModalCartConfirm('Tem certeza que deseja excluir este item do carrinho?', function() {
                 cart = cart.filter(i => i.id !== itemId);
                 saveCart();
                 renderCart();
                 showToast('Item removido do carrinho', 'warning');
-            }
+            });
         }
 
         function updateCartQty(itemId, change) {
@@ -369,9 +397,12 @@ if (isset($_GET['aba'])) {
                     return;
                 }
                 if (change < 0 && item.qty === 1) {
-                    if (confirm('Deseja remover este item do carrinho?')) {
-                        removeFromCart(itemId);
-                    }
+                    abrirModalCartConfirm('Deseja remover este item do carrinho?', function() {
+                        cart = cart.filter(i => i.id !== itemId);
+                        saveCart();
+                        renderCart();
+                        showToast('Item removido do carrinho', 'warning');
+                    });
                 } else {
                     item.qty = newQty;
                     if (item.qty < 1) item.qty = 1;
