@@ -12,7 +12,7 @@ $id_usuario = $_SESSION['usuario_id'];
 $aba_ativa = "view-catalogo"; 
 $sub_aba_ativa = "";
 
-// Oculta as categorias inativas do filtro de busca
+
 $categorias_disponiveis = $conn->query("SELECT * FROM Categoria WHERE status_cat = 'ativo' OR status_cat IS NULL ORDER BY Nome ASC");
 $categorias_array = [];
 if ($categorias_disponiveis) {
@@ -142,7 +142,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         </div>
         <div class="item-grid">
             <?php
-            // Filtra itens e categorias inativos (igual ao do aluno/visitante)
+            
             $sql = "SELECT i.*, c.Nome as nome_categoria 
                     FROM Item i 
                     LEFT JOIN Categoria c ON i.id_cat = c.id_cat 
@@ -305,10 +305,26 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         </div>
     </div>
 
+    <!-- Modal de Confirmação Personalizado para o Carrinho (Admin) -->
+    <div id="modalConfirmCart" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3 class="modal-heading-red" style="margin-top:0; color: #0f006d;">
+                <i class="bi bi-exclamation-triangle"></i> Atenção
+            </h3>
+            <p id="modal-cart-confirm-msg" style="margin-bottom:15px; color:#555; text-align:center; font-size: 1.1rem;">
+                Tem certeza que deseja remover este item do carrinho?
+            </p>
+            <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%;">
+                <button class="btn-cancel" onclick="fecharModalCart()">Cancelar</button>
+                <button class="btn-modal-confirm-delete" id="btn-cart-confirmar" style="background-color: #0f006d; color: white;">Remover</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container"></div>
 
     <script>
-        // Sistema de Carrinho Dinâmico
+  
         let cart = JSON.parse(localStorage.getItem('cartAdmin')) || [];
 
         function saveCart() {
@@ -327,13 +343,32 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             showToast('Item adicionado ao carrinho!', 'success');
         }
 
+        function abrirModalCartConfirm(mensagem, callback) {
+            const modal = document.getElementById('modalConfirmCart');
+            const msgEl = document.getElementById('modal-cart-confirm-msg');
+            const btnConfirmar = document.getElementById('btn-cart-confirmar');
+
+            msgEl.innerText = mensagem;
+            modal.style.display = 'flex';
+
+            btnConfirmar.onclick = function() {
+                fecharModalCart();
+                if (callback) callback();
+            };
+        }
+
+        function fecharModalCart() {
+            const modal = document.getElementById('modalConfirmCart');
+            if (modal) modal.style.display = 'none';
+        }
+
         function removeFromCart(itemId) {
-            if (confirm('Tem certeza que deseja excluir este item do carrinho?')) {
+            abrirModalCartConfirm('Tem certeza que deseja excluir este item do carrinho?', function() {
                 cart = cart.filter(i => i.id !== itemId);
                 saveCart();
                 renderCart();
                 showToast('Item removido do carrinho.', 'warning');
-            }
+            });
         }
 
         function updateCartQty(itemId, change) {
@@ -345,9 +380,12 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                     return;
                 }
                 if (change < 0 && item.qty === 1) {
-                    if (confirm('Deseja remover este item do carrinho?')) {
-                        removeFromCart(itemId);
-                    }
+                    abrirModalCartConfirm('Deseja remover este item do carrinho?', function() {
+                        cart = cart.filter(i => i.id !== itemId);
+                        saveCart();
+                        renderCart();
+                        showToast('Item removido do carrinho.', 'warning');
+                    });
                 } else {
                     item.qty = newQty;
                     if (item.qty < 1) item.qty = 1;
