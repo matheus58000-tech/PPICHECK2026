@@ -10,7 +10,10 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_tipo'] !== 'padrao') {
 $id_usuario = $_SESSION['usuario_id'];
 $aba_ativa = "tab-catalogo";
 
-// Filtra escondendo os itens inativos e categorias inativas
+$msg_sucesso_pedido = $_SESSION['sucesso_pedido'] ?? '';
+$msg_erro_pedido = $_SESSION['erro_pedido'] ?? '';
+unset($_SESSION['sucesso_pedido'], $_SESSION['erro_pedido']);
+
 $sql_cat = "SELECT i.*, c.Nome as nome_categoria 
             FROM Item i 
             LEFT JOIN Categoria c ON i.id_cat = c.id_cat 
@@ -19,7 +22,6 @@ $sql_cat = "SELECT i.*, c.Nome as nome_categoria
             ORDER BY i.Nome ASC";
 $resultado_itens = $conn->query($sql_cat);
 
-// Esconde as categorias inativas do menu de filtros
 $categorias_disponiveis = $conn->query("SELECT * FROM Categoria WHERE status_cat = 'ativo' OR status_cat IS NULL ORDER BY Nome ASC");
 $categorias_array = [];
 if ($categorias_disponiveis) {
@@ -31,41 +33,47 @@ if ($categorias_disponiveis) {
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
     $aba_ativa = "tab-conta";
     $novo_email = trim($_POST['email']);
-    $senha_atual =$_POST['senha_atual'];
-    $nova_senha =$_POST['nova_senha'];
-    $confirma_senha =$_POST['confirma_senha'];
+    $senha_atual = $_POST['senha_atual'];
+    $nova_senha = $_POST['nova_senha'];
+    $confirma_senha = $_POST['confirma_senha'];
 
-    $stmt_check =$conn->prepare("SELECT Email, Senha FROM Usuarios WHERE id_user = ?");
-    $stmt_check->bind_param("i", $id_usuario);$stmt_check->execute();
-    $user_db =$stmt_check->get_result()->fetch_assoc();
+    $stmt_check = $conn->prepare("SELECT Email, Senha FROM Usuarios WHERE id_user = ?");
+    $stmt_check->bind_param("i", $id_usuario);
+    $stmt_check->execute();
+    $user_db = $stmt_check->get_result()->fetch_assoc();
 
     try {
         if (!empty($nova_senha)) {
-            if ($nova_senha !== $confirma_senha) {$_SESSION['msg_erro'] = "As novas senhas não coincidem.";
-            } else if (!password_verify($senha_atual, $user_db['Senha'])) {$_SESSION['msg_erro'] = "A senha atual está incorreta.";
+            if ($nova_senha !== $confirma_senha) {
+                $_SESSION['msg_erro'] = "As novas senhas não coincidem.";
+            } else if (!password_verify($senha_atual, $user_db['Senha'])) {
+                $_SESSION['msg_erro'] = "A senha atual está incorreta.";
             } else {
                 $senha_hash = password_hash($nova_senha, PASSWORD_DEFAULT);
-                $stmt_upd =$conn->prepare("UPDATE Usuarios SET Email = ?, Senha = ? WHERE id_user = ?");
-                $stmt_upd->bind_param("ssi", $novo_email, $senha_hash,$id_usuario);
-                $stmt_upd->execute();$_SESSION['msg_sucesso'] = "Dados atualizados com sucesso!";
+                $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ?, Senha = ? WHERE id_user = ?");
+                $stmt_upd->bind_param("ssi", $novo_email, $senha_hash, $id_usuario);
+                $stmt_upd->execute();
+                $_SESSION['msg_sucesso'] = "Dados atualizados com sucesso!";
             }
         } else {
-            if ($novo_email !==$user_db['Email']) {
-                $stmt_upd =$conn->prepare("UPDATE Usuarios SET Email = ? WHERE id_user = ?");
-                $stmt_upd->bind_param("si", $novo_email,$id_usuario);
-                $stmt_upd->execute();$_SESSION['msg_sucesso'] = "E-mail atualizado com sucesso!";
+            if ($novo_email !== $user_db['Email']) {
+                $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ? WHERE id_user = ?");
+                $stmt_upd->bind_param("si", $novo_email, $id_usuario);
+                $stmt_upd->execute();
+                $_SESSION['msg_sucesso'] = "E-mail atualizado com sucesso!";
             } else {
                 $_SESSION['msg_warning'] = "Nenhuma alteração foi feita.";
             }
         }
-    } catch (Exception $e) {$_SESSION['msg_erro'] = "Erro: O E-mail digitado já está em uso.";
+    } catch (Exception $e) {
+        $_SESSION['msg_erro'] = "Erro: O E-mail digitado já está em uso.";
     }
     header("Location: FECHECKCOMUM.php?aba=tab-conta");
     exit();
 }
 
 if (isset($_GET['aba'])) {
-    $aba_ativa =$_GET['aba'];
+    $aba_ativa = $_GET['aba'];
 }
 ?>
 <!DOCTYPE html>
@@ -110,7 +118,7 @@ if (isset($_GET['aba'])) {
                     <button type="button" class="filter-option active" data-cat-id="" onclick="selecionarCategoria('', 'Todas')">
                         <i class="bi bi-grid"></i> Todas as Categorias
                     </button>
-                    <?php foreach ($categorias_array as$cat): ?>
+                    <?php foreach ($categorias_array as $cat): ?>
                         <button type="button" class="filter-option" data-cat-id="<?php echo (int)$cat['id_cat']; ?>" onclick="selecionarCategoria('<?php echo (int)$cat['id_cat']; ?>', '<?php echo htmlspecialchars($cat['Nome'], ENT_QUOTES); ?>')">
                             <i class="bi bi-tag"></i> <?php echo htmlspecialchars($cat['Nome']); ?>
                         </button>
@@ -152,14 +160,15 @@ if (isset($_GET['aba'])) {
         
         <div id="tab-catalogo" class="spa-tab" style="<?php echo $aba_ativa === 'tab-catalogo' ? 'display: block;' : 'display: none;'; ?>">
             <div class="item-grid">
-                <?php if ($resultado_itens &&$resultado_itens->num_rows > 0): ?>
-                    <?php while($item =$resultado_itens->fetch_assoc()): ?>
+                <?php if ($resultado_itens && $resultado_itens->num_rows > 0): ?>
+                    <?php while($item = $resultado_itens->fetch_assoc()): ?>
                         <?php 
                             $quantidade = (int)$item['Qntd']; 
                             $indisponivel = ($quantidade <= 0);
                             $imagem_nome = trim($item['Imagem'] ?? '');
                             
-                            if (empty($imagem_nome)) {$imagem = 'LOGOCHECKSEMDESCR.jpg';
+                            if (empty($imagem_nome)) {
+                                $imagem = 'LOGOCHECKSEMDESCR.jpg';
                             } elseif (file_exists($imagem_nome)) {
                                 $imagem = htmlspecialchars($imagem_nome);
                             } elseif (file_exists('uploads/' . $imagem_nome)) {
@@ -242,7 +251,7 @@ if (isset($_GET['aba'])) {
                             <input type="number" id="modal-qty" value="1" min="1">
                         </div>
                         
-                        <?php if (isset($status_exibicao) &&$status_exibicao === 'bloqueado'): ?>
+                        <?php if (isset($status_exibicao) && $status_exibicao === 'bloqueado'): ?>
                             <button class="btn-submit disabled" onclick="showToast('Sua conta está bloqueada pelo Administrador.', 'error')">
                                 <i class="bi bi-slash-circle"></i> Bloqueado
                             </button>
@@ -257,42 +266,52 @@ if (isset($_GET['aba'])) {
         </div>
     </div>
 
+    <!-- Modal de Agendamento/Finalização de Pedido com Formulário Real -->
     <div id="checkoutModal" class="modal-overlay" onclick="if(event.target === this) closeModal('checkoutModal')">
         <div class="modal-content">
             <h3><i class="bi bi-calendar-check"></i> Agendamento do Pedido</h3>
             
-            <div class="modal-section" style="margin-top: 20px; text-align: left;">
-                <label class="modal-label" style="display:block; font-weight:bold; margin-bottom:10px;">Tipo de Retirada:</label>
-                <div style="display: flex; align-items: center; gap: 10px; background: #fff8f8; padding: 12px; border-radius: 8px; border: 1px solid #f5c6cb;">
-                    <input type="checkbox" id="retirada-expressa" style="width: 20px; height: 20px; accent-color: #dc3545; cursor:pointer;">
-                    <label for="retirada-expressa" style="cursor: pointer; font-weight: 600; color: #dc3545; margin:0;">
-                        <i class="bi bi-lightning-charge-fill"></i> Retirada Expressa (Urgente)
-                    </label>
-                </div>
-                <p style="font-size: 0.8rem; color: #666; margin-top: 5px;">* Marque apenas se precisar de separação imediata dos materiais.</p>
-            </div>
+            <form id="form-realizar-pedido" action="processar_pedido.php" method="POST">
+                <!-- Inputs ocultos preenchidos dinamicamente via JS com os itens do carrinho -->
+                <div id="inputs-carrinho-ocultos"></div>
 
-            <div class="modal-section" style="margin-top: 20px;">
-                <label class="modal-label" style="display:block; text-align:left; font-weight:bold; margin-bottom:10px;">Prazo de devolução desejado:</label>
-                <div class="days-options" id="devolucaoOptions">
-                    <button class="day-btn selected" onclick="selectOption('devolucao', this, '7')">7 Dias</button>
-                    <button class="day-btn" onclick="selectOption('devolucao', this, '15')">15 Dias</button>
-                    <button class="day-btn" onclick="selectOption('devolucao', this, '30')">30 Dias</button>
-                    <button class="day-btn" onclick="selectOption('devolucao', this, 'dinamico')">Dinâmico</button>
+                <div class="modal-section" style="margin-top: 20px; text-align: left;">
+                    <label class="modal-label" style="display:block; font-weight:bold; margin-bottom:10px;">Tipo de Retirada:</label>
+                    <div style="display: flex; align-items: center; gap: 10px; background: #fff8f8; padding: 12px; border-radius: 8px; border: 1px solid #f5c6cb;">
+                        <input type="checkbox" name="retirada_expressa" value="1" id="retirada-expressa" style="width: 20px; height: 20px; accent-color: #dc3545; cursor:pointer;">
+                        <label for="retirada-expressa" style="cursor: pointer; font-weight: 600; color: #dc3545; margin:0;">
+                            <i class="bi bi-lightning-charge-fill"></i> Retirada Expressa (Urgente)
+                        </label>
+                    </div>
+                    <p style="font-size: 0.8rem; color: #666; margin-top: 5px;">* Marque apenas se precisar de separação imediata dos materiais.</p>
+                </div>
+
+                <div class="modal-section" style="margin-top: 20px;">
+                    <label class="modal-label" style="display:block; text-align:left; font-weight:bold; margin-bottom:10px;">Prazo de devolução desejado:</label>
+                    <div class="days-options" id="devolucaoOptions">
+                        <button type="button" class="day-btn selected" onclick="selectOption('devolucao', this, '7')">7 Dias</button>
+                        <button type="button" class="day-btn" onclick="selectOption('devolucao', this, '15')">15 Dias</button>
+                        <button type="button" class="day-btn" onclick="selectOption('devolucao', this, '30')">30 Dias</button>
+                        <button type="button" class="day-btn" onclick="selectOption('devolucao', this, 'dinamico')">Dinâmico</button>
+                    </div>
+                    
+                    <input type="hidden" name="prazo_dinamico" id="input-prazo-dinamico" value="0">
+                    <input type="hidden" name="data_ret" value="<?php echo date('Y-m-d'); ?>">
+                    <input type="hidden" name="data_dev" id="input-data-dev" value="<?php echo date('Y-m-d', strtotime('+7 days')); ?>">
+
+                    <div id="container-dinamico-devolucao" style="display: none; margin-top: 15px; text-align: left;">
+                        <label class="modal-label">Data Específica:</label>
+                        <input type="date" id="data-dinamica-devolucao" onchange="atualizarDataDev(this.value)" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; margin-bottom:10px; outline:none;">
+                        <label class="modal-label">Justificativa (Obrigatória):</label>
+                        <textarea name="justificativa" id="justificativa-devolucao" rows="3" placeholder="Explique a necessidade deste prazo..." style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; outline:none; resize:none;"></textarea>
+                    </div>
                 </div>
                 
-                <div id="container-dinamico-devolucao" style="display: none; margin-top: 15px; text-align: left;">
-                    <label class="modal-label">Data Específica:</label>
-                    <input type="date" id="data-dinamica-devolucao" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; margin-bottom:10px; outline:none;">
-                    <label class="modal-label">Justificativa (Obrigatória):</label>
-                    <textarea id="justificativa-devolucao" rows="3" placeholder="Explique a necessidade deste prazo..." style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; outline:none; resize:none;"></textarea>
+                <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%; border-top: 1px solid #eee; padding-top: 15px;">
+                    <button type="button" class="btn-cancel" onclick="closeModal('checkoutModal')">Cancelar</button>
+                    <button type="button" class="btn-submit" onclick="confirmOrder()">Confirmar Pedido</button>
                 </div>
-            </div>
-            
-            <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%; border-top: 1px solid #eee; padding-top: 15px;">
-                <button class="btn-cancel" onclick="closeModal('checkoutModal')">Cancelar</button>
-                <button class="btn-submit" onclick="confirmOrder()">Confirmar Pedido</button>
-            </div>
+            </form>
         </div>
     </div>
 
@@ -302,10 +321,10 @@ if (isset($_GET['aba'])) {
             <p style="margin: 15px 0;">Escolha o novo prazo de devolução desejado:</p>
             
             <div class="days-options" id="renovacaoOptions" style="margin-bottom: 15px;">
-                <button class="day-btn selected" onclick="selectOption('renovacao', this, '7')">7 Dias</button>
-                <button class="day-btn" onclick="selectOption('renovacao', this, '15')">15 Dias</button>
-                <button class="day-btn" onclick="selectOption('renovacao', this, '30')">30 Dias</button>
-                <button class="day-btn" onclick="selectOption('renovacao', this, 'dinamico')">Dinâmico</button>
+                <button type="button" class="day-btn selected" onclick="selectOption('renovacao', this, '7')">7 Dias</button>
+                <button type="button" class="day-btn" onclick="selectOption('renovacao', this, '15')">15 Dias</button>
+                <button type="button" class="day-btn" onclick="selectOption('renovacao', this, '30')">30 Dias</button>
+                <button type="button" class="day-btn" onclick="selectOption('renovacao', this, 'dinamico')">Dinâmico</button>
             </div>
             
             <div id="container-dinamico-renovacao" style="display: none; margin-top: 15px; text-align: left;">
@@ -322,7 +341,6 @@ if (isset($_GET['aba'])) {
         </div>
     </div>
 
-    <!-- Modal de Confirmação Personalizado para o Carrinho -->
     <div id="modalConfirmCart" class="modal-overlay" style="display: none;">
         <div class="modal-content">
             <h3 class="modal-heading-red" style="margin-top:0; color: #0f006d;">
@@ -341,7 +359,6 @@ if (isset($_GET['aba'])) {
     <div id="toast-container"></div>
 
     <script>
-        // Sistema de Carrinho Dinâmico
         let cart = JSON.parse(localStorage.getItem('cartComum')) || [];
 
         function saveCart() {
@@ -349,7 +366,7 @@ if (isset($_GET['aba'])) {
         }
 
         function addToCart(item) {
-            const existingItem = cart.find(i => i.id === item.id);
+            const existingItem = cart.find(i => i.id_item === item.id_item);
             if (existingItem) {
                 existingItem.qty += item.qty;
             } else {
@@ -381,7 +398,7 @@ if (isset($_GET['aba'])) {
 
         function removeFromCart(itemId) {
             abrirModalCartConfirm('Tem certeza que deseja excluir este item do carrinho?', function() {
-                cart = cart.filter(i => i.id !== itemId);
+                cart = cart.filter(i => i.id_item !== itemId);
                 saveCart();
                 renderCart();
                 showToast('Item removido do carrinho', 'warning');
@@ -389,7 +406,7 @@ if (isset($_GET['aba'])) {
         }
 
         function updateCartQty(itemId, change) {
-            const item = cart.find(i => i.id === itemId);
+            const item = cart.find(i => i.id_item === itemId);
             if (item) {
                 const newQty = item.qty + change;
                 if (change > 0 && newQty > item.stock) {
@@ -398,7 +415,7 @@ if (isset($_GET['aba'])) {
                 }
                 if (change < 0 && item.qty === 1) {
                     abrirModalCartConfirm('Deseja remover este item do carrinho?', function() {
-                        cart = cart.filter(i => i.id !== itemId);
+                        cart = cart.filter(i => i.id_item !== itemId);
                         saveCart();
                         renderCart();
                         showToast('Item removido do carrinho', 'warning');
@@ -422,18 +439,18 @@ if (isset($_GET['aba'])) {
             }
 
             cartList.innerHTML = cart.map(item => `
-                <div class="cart-item" data-id="${item.id}" onclick="openCartProductModal('${item.id}')">
+                <div class="cart-item" data-id="${item.id_item}" onclick="openCartProductModal(${item.id_item})">
                     <img src="${item.img}" alt="${item.name}" class="cart-item-img">
                     <div class="cart-item-info">
                         <strong class="cart-item-name">${item.name}</strong>
                         <span class="cart-item-code">Cód: #${item.code}</span>
                     </div>
                     <div class="quantity-controls">
-                        <button class="qty-btn minus" onclick="event.stopPropagation(); updateCartQty('${item.id}', -1)">-</button>
+                        <button class="qty-btn minus" onclick="event.stopPropagation(); updateCartQty(${item.id_item}, -1)">-</button>
                         <input type="text" value="${item.qty}" class="qty-input" readonly>
-                        <button class="qty-btn plus" onclick="event.stopPropagation(); updateCartQty('${item.id}', 1)">+</button>
+                        <button class="qty-btn plus" onclick="event.stopPropagation(); updateCartQty(${item.id_item}, 1)">+</button>
                     </div>
-                    <button class="remove-btn" title="Remover item" onclick="event.stopPropagation(); removeFromCart('${item.id}')"><i class="bi bi-trash"></i></button>
+                    <button class="remove-btn" title="Remover item" onclick="event.stopPropagation(); removeFromCart(${item.id_item})"><i class="bi bi-trash"></i></button>
                 </div>
             `).join('');
         }
@@ -529,17 +546,6 @@ if (isset($_GET['aba'])) {
             window.scrollTo({ top: 0, behavior: 'smooth' }); 
         }
 
-        function filterPedidos(status) {
-            const cards = document.querySelectorAll('#lista-de-pedidos-aluno .pedido-card');
-            cards.forEach(card => {
-                if (status === 'todos' || card.getAttribute('data-status') === status) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        }
-
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
         
         window.onclick = function(e) {
@@ -560,10 +566,13 @@ if (isset($_GET['aba'])) {
             document.getElementById('modal-cat').innerText = el.getAttribute('data-cat');
             document.getElementById('modal-desc').innerText = el.getAttribute('data-desc');
             
+            const idItem = parseInt(el.getAttribute('data-id'));
             const qty = parseInt(el.getAttribute('data-qty'));
             const stockEl = document.getElementById('modal-stock');
             const qtyInput = document.getElementById('modal-qty');
             const btnEl = document.getElementById('modal-btn-adicionar');
+
+            document.getElementById('productModal').setAttribute('data-id-item', idItem);
 
             if (qty > 0) {
                 stockEl.innerText = qty + ' unidades em estoque';
@@ -594,15 +603,16 @@ if (isset($_GET['aba'])) {
         }
 
         function addToCartFromModal() {
+            const modal = document.getElementById('productModal');
+            const idItem = parseInt(modal.getAttribute('data-id-item'));
             const img = document.getElementById('modal-img').src;
             const name = document.getElementById('modal-title').innerText;
-            const cat = document.getElementById('modal-cat').innerText;
             const qty = parseInt(document.getElementById('modal-qty').value);
-            const card = document.querySelector('.item-card[data-name="' + name + '"]');
+            const card = document.querySelector(`.item-card[data-id="${idItem}"]`);
             const code = card ? card.getAttribute('data-cat-id') : '000';
             const stock = card ? parseInt(card.getAttribute('data-stock')) : 0;
             
-            const existingItem = cart.find(i => i.id === name);
+            const existingItem = cart.find(i => i.id_item === idItem);
             const currentQty = existingItem ? existingItem.qty : 0;
             
             if (currentQty + qty > stock) {
@@ -611,7 +621,7 @@ if (isset($_GET['aba'])) {
             }
             
             const item = {
-                id: name,
+                id_item: idItem,
                 img: img,
                 name: name,
                 code: code,
@@ -625,6 +635,7 @@ if (isset($_GET['aba'])) {
         }
 
         function addToCartFromCard(card) {
+            const idItem = parseInt(card.getAttribute('data-id'));
             const img = card.getAttribute('data-img');
             const name = card.getAttribute('data-name');
             const code = card.getAttribute('data-cat-id');
@@ -632,7 +643,7 @@ if (isset($_GET['aba'])) {
             const desc = card.getAttribute('data-desc');
             const qty = 1;
             
-            const existingItem = cart.find(i => i.id === name);
+            const existingItem = cart.find(i => i.id_item === idItem);
             const currentQty = existingItem ? existingItem.qty : 0;
             
             if (currentQty + qty > stock) {
@@ -641,7 +652,7 @@ if (isset($_GET['aba'])) {
             }
             
             const item = {
-                id: name,
+                id_item: idItem,
                 img: img,
                 name: name,
                 code: code,
@@ -653,15 +664,8 @@ if (isset($_GET['aba'])) {
             addToCart(item);
         }
 
-        function updateQty(btn, change) {
-            const input = btn.parentElement.querySelector('.qty-input');
-            let val = parseInt(input.value) + change;
-            if (val < 1) val = 1;
-            input.value = val;
-        }
-
         function openCartProductModal(itemId) {
-            const item = cart.find(i => i.id === itemId);
+            const item = cart.find(i => i.id_item === itemId);
             if (!item) return;
 
             document.getElementById('modal-img').src = item.img;
@@ -724,12 +728,33 @@ if (isset($_GET['aba'])) {
             prazosSelecionados[group] = val;
 
             const dinamicoContainer = document.getElementById('container-dinamico-' + group);
-            if (dinamicoContainer) {
-                dinamicoContainer.style.display = (val === 'dinamico') ? 'block' : 'none';
+            const inputDev = document.getElementById('input-data-dev');
+            const inputDinamicoFlag = document.getElementById('input-prazo-dinamico');
+
+            if (val === 'dinamico') {
+                if (dinamicoContainer) dinamicoContainer.style.display = 'block';
+                if (inputDinamicoFlag) inputDinamicoFlag.value = "1";
+            } else {
+                if (dinamicoContainer) dinamicoContainer.style.display = 'none';
+                if (inputDinamicoFlag) inputDinamicoFlag.value = "0";
+
+                let dias = parseInt(val);
+                let dataHoje = new Date();
+                dataHoje.setDate(dataHoje.getDate() + dias);
+                if (inputDev) inputDev.value = dataHoje.toISOString().split('T')[0];
             }
         }
         
+        function atualizarDataDev(valor) {
+            const inputDev = document.getElementById('input-data-dev');
+            if (inputDev) inputDev.value = valor;
+        }
+
         function openCheckoutModal() { 
+            if (cart.length === 0) {
+                showToast('Seu carrinho está vazio!', 'error');
+                return;
+            }
             <?php if (isset($status_exibicao) && $status_exibicao === 'bloqueado'): ?>
                 showToast('Sua conta está bloqueada pelo Administrador.', 'error');
             <?php else: ?>
@@ -738,6 +763,11 @@ if (isset($_GET['aba'])) {
         }
         
         function confirmOrder() {
+            if (cart.length === 0) {
+                showToast('Seu carrinho está vazio!', 'error');
+                return;
+            }
+
             if (prazosSelecionados['devolucao'] === 'dinamico') {
                 const data = document.getElementById('data-dinamica-devolucao').value;
                 const just = document.getElementById('justificativa-devolucao').value.trim();
@@ -747,15 +777,19 @@ if (isset($_GET['aba'])) {
                 }
             }
 
-            const isExpress = document.getElementById('retirada-expressa').checked;
-            if(isExpress) {
-                showToast('Pedido Express registrado com sucesso! (Urgente)', 'success');
-            } else {
-                showToast('Pedido Finalizado com sucesso!', 'success');
-            }
+            const containerOculto = document.getElementById('inputs-carrinho-ocultos');
+            containerOculto.innerHTML = '';
             
-            closeModal('checkoutModal'); 
-            switchTab('tab-pedidos', 'Meus Pedidos', 'nav-pedidos');
+            cart.forEach(item => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = `itens[${item.id_item}]`;
+                input.value = item.qty;
+                containerOculto.appendChild(input);
+            });
+
+            localStorage.removeItem('cartComum');
+            document.getElementById('form-realizar-pedido').submit();
         }
 
         function openRenewalModal() { document.getElementById('modalRenovacao').style.display = 'flex'; }
@@ -775,6 +809,15 @@ if (isset($_GET['aba'])) {
 
         document.addEventListener('DOMContentLoaded', function() {
             renderCart();
+            
+            <?php if (!empty($msg_sucesso_pedido)): ?>
+                showToast(<?php echo json_encode($msg_sucesso_pedido); ?>, 'success');
+            <?php endif; ?>
+
+            <?php if (!empty($msg_erro_pedido)): ?>
+                showToast(<?php echo json_encode($msg_erro_pedido); ?>, 'error');
+            <?php endif; ?>
+
             const inputBusca = document.getElementById('search-bar');
             if (inputBusca) {
                 inputBusca.addEventListener('input', aplicarFiltros);
