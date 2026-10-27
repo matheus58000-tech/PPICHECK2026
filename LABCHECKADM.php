@@ -391,14 +391,213 @@ while ($cat = $res_categorias->fetch_assoc()) {
         </div>
     </div>
 
-    <div id="tab-pedidos-lab" class="spa-tab" style="display: none;">
+   <div id="tab-pedidos-lab" class="spa-tab" style="display: none;">
         <div class="content-area">
             
             <div class="filter-buttons">
                 <button class="btn-filter active" onclick="switchLabFilter('pendentes', this)"><i class="bi bi-hourglass-split"></i> Pendentes de Aprovação</button>
                 <button class="btn-filter" onclick="switchLabFilter('andamento', this)"><i class="bi bi-box-seam"></i> Em Andamento</button>
-                <button class="btn-filter" onclick="switchLabFilter('historico-lab', this)"><i class="bi bi-clock-history"></i> Histórico</button>
+                <button class="btn-filter" onclick="switchLabFilter('historico-lab', this)"><i class="bi bi-clock-history"></i> Histórico / Finalizados</button>
             </div>
+            
+            <!-- 1. PEDIDIOS PENDENTES -->
+            <div class="orders-container" id="pendentes">
+                <h3 class="order-section-title">Aguardando Aprovação</h3>
+                
+                <?php
+                $sql_pendentes = "SELECT p.*, u.Nome as NomeUsuario, u.Email 
+                                  FROM Pedido p 
+                                  INNER JOIN Usuarios u ON p.id_user = u.id_user 
+                                  WHERE p.Status_pedido = 'Pendente' 
+                                  ORDER BY p.id_pedido DESC";
+                $res_pendentes = $conn->query($sql_pendentes);
+
+                if ($res_pendentes && $res_pendentes->num_rows > 0):
+                    while ($ped = $res_pendentes->fetch_assoc()):
+                        $id_ped = $ped['id_pedido'];
+                        $cod_ped = htmlspecialchars($ped['codigo_pedido'] ?? "#{$id_ped}");
+                        $nome_usr = htmlspecialchars($ped['NomeUsuario']);
+                        $is_express = (bool)$ped['Retirada_expressa'];
+                        $data_ped = date('d/m/Y', strtotime($ped['Data_ret'] ?? 'now'));
+                        
+                        // Busca os itens do pedido
+                        $sql_itens_ped = "SELECT i.Nome, c.quantidade 
+                                          FROM Contem c 
+                                          INNER JOIN Item i ON c.id_item = i.id_item 
+                                          WHERE c.id_pedido = $id_ped";
+                        $res_ip = $conn->query($sql_itens_ped);
+                        $lista_itens_str = [];
+                        while ($ip = $res_ip->fetch_assoc()) {
+                            $lista_itens_str[] = htmlspecialchars($ip['Nome']) . " (x" . $ip['quantidade'] . ")";
+                        }
+                ?>
+                    <div class="order-card <?php echo $is_express ? 'express' : ''; ?>" id="card-<?php echo $id_ped; ?>">
+                        <?php if ($is_express): ?>
+                            <div class="express-badge"><i class="bi bi-lightning-charge-fill"></i> Retirada Expressa</div>
+                        <?php endif; ?>
+                        
+                        <div class="order-header" style="<?php echo $is_express ? 'border-bottom: none; padding-bottom: 0;' : ''; ?>">
+                            <span class="order-code"><?php echo $cod_ped; ?></span>
+                            <span class="order-user">Usuário: <?php echo $nome_usr; ?></span>
+                            
+                            <!-- Formulário para Aprovar/Recusar via atualizar_pedido.php -->
+                            <div class="action-buttons">
+                                <form action="atualizar_pedido.php" method="POST" style="display:inline;">
+                                    <input type="hidden" name="id_pedido" value="<?php echo $id_ped; ?>">
+                                    <input type="hidden" name="status_pedido" value="Em Separação">
+                                    <input type="hidden" name="aprovacao" value="Sim">
+                                    <button type="submit" class="btn-action approve" title="Aprovar Pedido">
+                                        <i class="bi bi-check-lg"></i> Aprovar
+                                    </button>
+                                </form>
+
+                                <form action="atualizar_pedido.php" method="POST" style="display:inline;" onsubmit="return confirm('Deseja realmente recusar e cancelar este pedido?');">
+                                    <input type="hidden" name="id_pedido" value="<?php echo $id_ped; ?>">
+                                    <input type="hidden" name="status_pedido" value="Cancelado">
+                                    <input type="hidden" name="aprovacao" value="Nao">
+                                    <button type="submit" class="btn-action delete" title="Recusar Pedido">
+                                        <i class="bi bi-x-lg"></i> Recusar
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <div class="order-details" style="<?php echo $is_express ? 'margin-top: 10px; border-top: 1px dashed #eee; padding-top: 10px;' : ''; ?>">
+                            <p><strong>Itens:</strong> <?php echo implode(', ', $lista_itens_str); ?></p>
+                            <p>Data do Pedido: <?php echo $data_ped; ?></p>
+                            <?php if (!empty($ped['Justificativa'])): ?>
+                                <p><strong>Justificativa:</strong> <?php echo htmlspecialchars($ped['Justificativa']); ?></p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php 
+                    endwhile; 
+                else: 
+                ?>
+                    <p style="text-align: center; color: #666; padding: 30px;">Nenhum pedido pendente no momento.</p>
+                <?php endif; ?>
+            </div>
+
+            <!-- 2. PEDIDOS EM ANDAMENTO -->
+            <div class="orders-container" id="andamento" style="display: none;">
+                <h3 class="order-section-title">Pedidos Em Andamento (Em Separação / Retirados)</h3>
+                
+                <?php
+                $sql_andamento = "SELECT p.*, u.Nome as NomeUsuario 
+                                  FROM Pedido p 
+                                  INNER JOIN Usuarios u ON p.id_user = u.id_user 
+                                  WHERE p.Status_pedido != 'Pendente' 
+                                  AND p.Status_pedido != 'Finalizado' 
+                                  AND p.Status_pedido != 'Cancelado'
+                                  ORDER BY p.id_pedido DESC";
+                $res_andamento = $conn->query($sql_andamento);
+
+                if ($res_andamento && $res_andamento->num_rows > 0):
+                    while ($ped = $res_andamento->fetch_assoc()):
+                        $id_ped = $ped['id_pedido'];
+                        $cod_ped = htmlspecialchars($ped['codigo_pedido'] ?? "#{$id_ped}");
+                        $nome_usr = htmlspecialchars($ped['NomeUsuario']);
+                        $is_express = (bool)$ped['Retirada_expressa'];
+                        $status_atual = $ped['Status_pedido'];
+
+                        $sql_ip = "SELECT i.Nome, c.quantidade FROM Contem c INNER JOIN Item i ON c.id_item = i.id_item WHERE c.id_pedido = $id_ped";
+                        $res_ip = $conn->query($sql_ip);
+                        $lista_itens_str = [];
+                        while ($ip = $res_ip->fetch_assoc()) {
+                            $lista_itens_str[] = htmlspecialchars($ip['Nome']) . " (x" . $ip['quantidade'] . ")";
+                        }
+                ?>
+                    <div class="order-card <?php echo $is_express ? 'express' : ''; ?>">
+                        <?php if ($is_express): ?>
+                            <div class="express-badge"><i class="bi bi-lightning-charge-fill"></i> Retirada Expressa</div>
+                        <?php endif; ?>
+                        
+                        <div class="order-header" style="<?php echo $is_express ? 'border-bottom: none; padding-bottom: 0;' : ''; ?>">
+                            <span class="order-code"><?php echo $cod_ped; ?></span>
+                            <span class="order-user">Usuário: <?php echo $nome_usr; ?></span>
+                            
+                            <!-- Alteração dinâmica de status integrada ao atualizar_pedido.php -->
+                            <div class="status-selector">
+                                <form action="atualizar_pedido.php" method="POST" style="display: flex; align-items: center; gap: 5px;">
+                                    <input type="hidden" name="id_pedido" value="<?php echo $id_ped; ?>">
+                                    <input type="hidden" name="aprovacao" value="Sim">
+                                    <label>Status:</label>
+                                    <select name="status_pedido" style="padding:6px; border-radius:6px; border:1px solid #ccc;" onchange="this.form.submit()">
+                                        <option value="Em Separação" <?php echo ($status_atual === 'Em Separação') ? 'selected' : ''; ?>>Em Separação</option>
+                                        <option value="Pronto para Retirada" <?php echo ($status_atual === 'Pronto para Retirada') ? 'selected' : ''; ?>>Pronto para Retirada</option>
+                                        <option value="Retirado" <?php echo ($status_atual === 'Retirado') ? 'selected' : ''; ?>>Retirado (Em uso)</option>
+                                        <option value="Devolvido" <?php echo ($status_atual === 'Devolvido') ? 'selected' : ''; ?>>Devolvido</option>
+                                        <option value="Cancelado" <?php echo ($status_atual === 'Cancelado') ? 'selected' : ''; ?>>Cancelar / Estornar</option>
+                                    </select>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <div class="order-details" style="<?php echo $is_express ? 'margin-top: 10px; border-top: 1px dashed #eee; padding-top: 10px;' : ''; ?>">
+                            <p><strong>Itens:</strong> <?php echo implode(', ', $lista_itens_str); ?></p>
+                            <p>Previsão de Devolução: <?php echo date('d/m/Y', strtotime($ped['Data_dev'] ?? 'now')); ?></p>
+                        </div>
+                    </div>
+                <?php 
+                    endwhile; 
+                else: 
+                ?>
+                    <p style="text-align: center; color: #666; padding: 30px;">Nenhum pedido em andamento no momento.</p>
+                <?php endif; ?>
+            </div>
+
+            <!-- 3. HISTÓRICO DE PEDIDOS -->
+            <div class="orders-container" id="historico-lab" style="display: none;">
+                <h3 class="order-section-title">Pedidos Finalizados e Cancelados</h3>
+                
+                <?php
+                $sql_hist = "SELECT p.*, u.Nome as NomeUsuario 
+                             FROM Pedido p 
+                             INNER JOIN Usuarios u ON p.id_user = u.id_user 
+                             WHERE p.Status_pedido = 'Devolvido' 
+                             OR p.Status_pedido = 'Cancelado' 
+                             ORDER BY p.id_pedido DESC LIMIT 20";
+                $res_hist = $conn->query($sql_hist);
+
+                if ($res_hist && $res_hist->num_rows > 0):
+                    while ($ped = $res_hist->fetch_assoc()):
+                        $id_ped = $ped['id_pedido'];
+                        $cod_ped = htmlspecialchars($ped['codigo_pedido'] ?? "#{$id_ped}");
+                        $nome_usr = htmlspecialchars($ped['NomeUsuario']);
+                        $status_h = $ped['Status_pedido'];
+
+                        $sql_ip = "SELECT i.Nome, c.quantidade FROM Contem c INNER JOIN Item i ON c.id_item = i.id_item WHERE c.id_pedido = $id_ped";
+                        $res_ip = $conn->query($sql_ip);
+                        $lista_itens_str = [];
+                        while ($ip = $res_ip->fetch_assoc()) {
+                            $lista_itens_str[] = htmlspecialchars($ip['Nome']) . " (x" . $ip['quantidade'] . ")";
+                        }
+                ?>
+                    <div class="order-card">
+                        <div class="order-header">
+                            <span class="order-code"><?php echo $cod_ped; ?></span>
+                            <span class="order-user">Usuário: <?php echo $nome_usr; ?></span>
+                            <div class="status-selector">
+                                <span class="status-badge" style="background:#6c757d; color:white; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem;">
+                                    <?php echo $status_h; ?>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="order-details">
+                            <p><strong>Itens:</strong> <?php echo implode(', ', $lista_itens_str); ?></p>
+                            <p>Data de Devolução/Fechamento: <?php echo date('d/m/Y', strtotime($ped['Data_dev'] ?? 'now')); ?></p>
+                        </div>
+                    </div>
+                <?php 
+                    endwhile; 
+                else: 
+                ?>
+                    <p style="text-align: center; color: #666; padding: 30px;">Nenhum pedido no histórico recente.</p>
+                <?php endif; ?>
+            </div>
+            
+        </div>
+    </div>
             
             <div class="orders-container" id="pendentes">
                 <h3 class="order-section-title">Aguardando Aprovação</h3>
