@@ -12,6 +12,9 @@ $id_usuario = $_SESSION['usuario_id'];
 $aba_ativa = "view-catalogo"; 
 $sub_aba_ativa = "";
 
+$msg_sucesso_pedido = $_SESSION['sucesso_pedido'] ?? '';
+$msg_erro_pedido = $_SESSION['erro_pedido'] ?? '';
+unset($_SESSION['sucesso_pedido'], $_SESSION['erro_pedido']);
 
 $categorias_disponiveis = $conn->query("SELECT * FROM Categoria WHERE status_cat = 'ativo' OR status_cat IS NULL ORDER BY Nome ASC");
 $categorias_array = [];
@@ -20,8 +23,6 @@ if ($categorias_disponiveis) {
         $categorias_array[] = $cat;
     }
 }
-
-global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -44,15 +45,12 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             visibility: hidden;
             opacity: 0;
             pointer-events: none; 
-            
             transition: visibility 0s 0.5s, opacity 0.2s linear 0.3s;
         }
-
         .main-nav .nav-dropdown:hover .dropdown-content {
             visibility: visible;
             opacity: 1;
             pointer-events: auto; 
-            
             transition: visibility 0s 0s, opacity 0.2s linear 0s;
         }
     </style>
@@ -136,13 +134,12 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         </nav>
     </header>
 
-<main id="view-catalogo" class="main-view catalog-main-container">
+    <main id="view-catalogo" class="main-view catalog-main-container">
         <div class="page-header-row">
             <h2>Catálogo de Itens</h2>
         </div>
         <div class="item-grid">
             <?php
-            
             $sql = "SELECT i.*, c.Nome as nome_categoria 
                     FROM Item i 
                     LEFT JOIN Categoria c ON i.id_cat = c.id_cat 
@@ -154,7 +151,6 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
 
             if ($result && $result->num_rows > 0):
                 while($item = $result->fetch_assoc()): 
-                    
                     $img_db = $item['Imagem'];
                     $img_final = 'item_sem_foto.png'; 
 
@@ -173,6 +169,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
 
                 <div class="item-card" style="position: relative;"
                      onclick="openProductModal(this)"
+                     data-id="<?php echo (int)$item['id_item']; ?>"
                      data-name="<?php echo $nome_limpo; ?>"
                      data-img="<?php echo $img_final; ?>"
                      data-qty="<?php echo $item['Qntd']; ?>"
@@ -240,42 +237,51 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         </div>
     </div>
 
+    <!-- Modal de Checkout do Admin com Formulário Real -->
     <div id="checkoutModal" class="modal-overlay" onclick="if(event.target === this) closeCheckoutModal()">
         <div class="modal-content">
             <h3 class="modal-heading-blue"><i class="bi bi-calendar-check"></i> Agendamento do Pedido</h3>
             
-            <div class="modal-section" style="margin-top: 20px; text-align: left;">
-                <label class="modal-label" style="display:block; font-weight:bold; margin-bottom:10px;">Tipo de Retirada:</label>
-                <div style="display: flex; align-items: center; gap: 10px; background: #fff8f8; padding: 12px; border-radius: 8px; border: 1px solid #f5c6cb;">
-                    <input type="checkbox" id="retirada-expressa-adm" style="width: 20px; height: 20px; accent-color: #dc3545; cursor:pointer;">
-                    <label for="retirada-expressa-adm" style="cursor: pointer; font-weight: 600; color: #dc3545; margin:0;">
-                        <i class="bi bi-lightning-charge-fill"></i> Retirada Expressa (Urgente)
-                    </label>
-                </div>
-                <p style="font-size: 0.8rem; color: #666; margin-top: 5px;">* Marque apenas se precisar de separação imediata dos materiais.</p>
-            </div>
+            <form id="form-realizar-pedido-adm" action="processar_pedido.php" method="POST">
+                <div id="inputs-carrinho-ocultos-adm"></div>
 
-            <div class="modal-section" style="margin-top: 20px;">
-                <label class="modal-label" style="display:block; text-align:left; font-weight:bold; margin-bottom:10px;">Prazo de devolução desejado:</label>
-                <div class="days-options" id="devolucaoAdmOptions">
-                    <button class="day-btn selected" onclick="selectCheckoutOption('devolucaoAdm', this, '7')">7 Dias</button>
-                    <button class="day-btn" onclick="selectCheckoutOption('devolucaoAdm', this, '15')">15 Dias</button>
-                    <button class="day-btn" onclick="selectCheckoutOption('devolucaoAdm', this, '30')">30 Dias</button>
-                    <button class="day-btn" onclick="selectCheckoutOption('devolucaoAdm', this, 'dinamico')">Dinâmico</button>
+                <div class="modal-section" style="margin-top: 20px; text-align: left;">
+                    <label class="modal-label" style="display:block; font-weight:bold; margin-bottom:10px;">Tipo de Retirada:</label>
+                    <div style="display: flex; align-items: center; gap: 10px; background: #fff8f8; padding: 12px; border-radius: 8px; border: 1px solid #f5c6cb;">
+                        <input type="checkbox" name="retirada_expressa" value="1" id="retirada-expressa-adm" style="width: 20px; height: 20px; accent-color: #dc3545; cursor:pointer;">
+                        <label for="retirada-expressa-adm" style="cursor: pointer; font-weight: 600; color: #dc3545; margin:0;">
+                            <i class="bi bi-lightning-charge-fill"></i> Retirada Expressa (Urgente)
+                        </label>
+                    </div>
+                    <p style="font-size: 0.8rem; color: #666; margin-top: 5px;">* Marque apenas se precisar de separação imediata dos materiais.</p>
+                </div>
+
+                <div class="modal-section" style="margin-top: 20px;">
+                    <label class="modal-label" style="display:block; text-align:left; font-weight:bold; margin-bottom:10px;">Prazo de devolução desejado:</label>
+                    <div class="days-options" id="devolucaoAdmOptions">
+                        <button type="button" class="day-btn selected" onclick="selectCheckoutOption('devolucaoAdm', this, '7')">7 Dias</button>
+                        <button type="button" class="day-btn" onclick="selectCheckoutOption('devolucaoAdm', this, '15')">15 Dias</button>
+                        <button type="button" class="day-btn" onclick="selectCheckoutOption('devolucaoAdm', this, '30')">30 Dias</button>
+                        <button type="button" class="day-btn" onclick="selectCheckoutOption('devolucaoAdm', this, 'dinamico')">Dinâmico</button>
+                    </div>
+                    
+                    <input type="hidden" name="prazo_dinamico" id="input-prazo-dinamico-adm" value="0">
+                    <input type="hidden" name="data_ret" value="<?php echo date('Y-m-d'); ?>">
+                    <input type="hidden" name="data_dev" id="input-data-dev-adm" value="<?php echo date('Y-m-d', strtotime('+7 days')); ?>">
+
+                    <div id="container-dinamico-devolucaoAdm" style="display: none; margin-top: 15px; text-align: left;">
+                        <label class="modal-label">Data Específica:</label>
+                        <input type="date" id="data-dinamica-devolucaoAdm" onchange="atualizarDataDevAdm(this.value)" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; margin-bottom:10px; outline:none;">
+                        <label class="modal-label">Justificativa (Obrigatória):</label>
+                        <textarea name="justificativa" id="justificativa-devolucaoAdm" rows="3" placeholder="Explique a necessidade deste prazo..." style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; outline:none; resize:none;"></textarea>
+                    </div>
                 </div>
                 
-                <div id="container-dinamico-devolucaoAdm" style="display: none; margin-top: 15px; text-align: left;">
-                    <label class="modal-label">Data Específica:</label>
-                    <input type="date" id="data-dinamica-devolucaoAdm" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; margin-bottom:10px; outline:none;">
-                    <label class="modal-label">Justificativa (Obrigatória):</label>
-                    <textarea id="justificativa-devolucaoAdm" rows="3" placeholder="Explique a necessidade deste prazo..." style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; outline:none; resize:none;"></textarea>
+                <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%; border-top: 1px solid #eee; padding-top: 15px;">
+                    <button type="button" class="btn-cancel" onclick="closeCheckoutModal()">Cancelar</button>
+                    <button type="button" class="btn-confirm" onclick="confirmOrder()">Confirmar</button>
                 </div>
-            </div>
-            
-            <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%; border-top: 1px solid #eee; padding-top: 15px;">
-                <button class="btn-cancel" onclick="closeCheckoutModal()">Cancelar</button>
-                <button class="btn-confirm" onclick="confirmOrder()">Confirmar</button>
-            </div>
+            </form>
         </div>
     </div>
 
@@ -285,10 +291,10 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             <p style="margin-bottom:15px; color:#555;">Escolha o novo prazo de devolução:</p>
             
             <div class="days-options" id="renovaOptions" style="margin-bottom: 15px;">
-                <button class="day-btn selected" onclick="selectCheckoutOption('renova', this, '7')">7 Dias</button>
-                <button class="day-btn" onclick="selectCheckoutOption('renova', this, '15')">15 Dias</button>
-                <button class="day-btn" onclick="selectCheckoutOption('renova', this, '30')">30 Dias</button>
-                <button class="day-btn" onclick="selectCheckoutOption('renova', this, 'dinamico')">Dinâmico</button>
+                <button type="button" class="day-btn selected" onclick="selectCheckoutOption('renova', this, '7')">7 Dias</button>
+                <button type="button" class="day-btn" onclick="selectCheckoutOption('renova', this, '15')">15 Dias</button>
+                <button type="button" class="day-btn" onclick="selectCheckoutOption('renova', this, '30')">30 Dias</button>
+                <button type="button" class="day-btn" onclick="selectCheckoutOption('renova', this, 'dinamico')">Dinâmico</button>
             </div>
             
             <div id="container-dinamico-renova" style="display: none; margin-top: 15px; text-align: left;">
@@ -299,13 +305,12 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             </div>
 
             <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%; border-top: 1px solid #eee; padding-top: 15px;">
-                <button class="btn-cancel" onclick="closeRenewalModal()">Cancelar</button>
-                <button class="btn-confirm" onclick="confirmRenewal()">Confirmar</button>
+                <button type="button" class="btn-cancel" onclick="closeRenewalModal()">Cancelar</button>
+                <button type="button" class="btn-confirm" onclick="confirmRenewal()">Confirmar</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal de Confirmação Personalizado para o Carrinho (Admin) -->
     <div id="modalConfirmCart" class="modal-overlay" style="display: none;">
         <div class="modal-content">
             <h3 class="modal-heading-red" style="margin-top:0; color: #0f006d;">
@@ -324,7 +329,6 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
     <div id="toast-container"></div>
 
     <script>
-  
         let cart = JSON.parse(localStorage.getItem('cartAdmin')) || [];
 
         function saveCart() {
@@ -332,7 +336,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         }
 
         function addToCart(item) {
-            const existingItem = cart.find(i => i.id === item.id);
+            const existingItem = cart.find(i => i.id_item === item.id_item);
             if (existingItem) {
                 existingItem.qty += item.qty;
             } else {
@@ -364,7 +368,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
 
         function removeFromCart(itemId) {
             abrirModalCartConfirm('Tem certeza que deseja excluir este item do carrinho?', function() {
-                cart = cart.filter(i => i.id !== itemId);
+                cart = cart.filter(i => i.id_item !== itemId);
                 saveCart();
                 renderCart();
                 showToast('Item removido do carrinho.', 'warning');
@@ -372,7 +376,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         }
 
         function updateCartQty(itemId, change) {
-            const item = cart.find(i => i.id === itemId);
+            const item = cart.find(i => i.id_item === itemId);
             if (item) {
                 const newQty = item.qty + change;
                 if (change > 0 && newQty > item.stock) {
@@ -381,7 +385,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                 }
                 if (change < 0 && item.qty === 1) {
                     abrirModalCartConfirm('Deseja remover este item do carrinho?', function() {
-                        cart = cart.filter(i => i.id !== itemId);
+                        cart = cart.filter(i => i.id_item !== itemId);
                         saveCart();
                         renderCart();
                         showToast('Item removido do carrinho.', 'warning');
@@ -405,18 +409,18 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             }
 
             cartList.innerHTML = cart.map(item => `
-                <div class="cart-item" data-id="${item.id}" onclick="openCartProductModal('${item.id}')">
+                <div class="cart-item" data-id="${item.id_item}" onclick="openCartProductModal(${item.id_item})">
                     <img src="${item.img}" alt="${item.name}" class="cart-item-img">
                     <div class="cart-item-info">
                         <strong class="cart-item-name">${item.name}</strong>
                         <span class="cart-item-code">Cód: #${item.code}</span>
                     </div>
                     <div class="quantity-controls">
-                        <button class="qty-btn minus" onclick="event.stopPropagation(); updateCartQty('${item.id}', -1)">-</button>
+                        <button class="qty-btn minus" onclick="event.stopPropagation(); updateCartQty(${item.id_item}, -1)">-</button>
                         <input type="text" value="${item.qty}" class="qty-input" readonly>
-                        <button class="qty-btn plus" onclick="event.stopPropagation(); updateCartQty('${item.id}', 1)">+</button>
+                        <button class="qty-btn plus" onclick="event.stopPropagation(); updateCartQty(${item.id_item}, 1)">+</button>
                     </div>
-                    <button class="remove-btn" title="Remover item" onclick="event.stopPropagation(); removeFromCart('${item.id}')"><i class="bi bi-trash"></i></button>
+                    <button class="remove-btn" title="Remover item" onclick="event.stopPropagation(); removeFromCart(${item.id_item})"><i class="bi bi-trash"></i></button>
                 </div>
             `).join('');
         }
@@ -460,51 +464,18 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             document.getElementById('page-main-title').innerText = titleText;
         }
 
-        function mudarCampoDinamicoAddUser(tipo) {
-            const grupo = document.getElementById('grupo-dinamico-add-user');
-            const label = document.getElementById('label-dinamico-add-user');
-            const input = document.getElementById('input-dinamico-add-user');
-
-            if (tipo === 'padrao') {
-                grupo.style.display = 'block';
-                label.innerText = 'Matrícula';
-                input.required = true;
-                input.placeholder = 'Digite a Matrícula';
-            } else if (tipo === 'admin' || tipo === 'resp') {
-                grupo.style.display = 'block';
-                label.innerText = 'SIAPE';
-                input.required = true;
-                input.placeholder = 'Digite o SIAPE';
-            } else {
-                grupo.style.display = 'none';
-                input.required = false;
-                input.value = '';
-            }
-        }
-        
-        const addCpfInput = document.getElementById('add_cpf');
-        const editCpfInput = document.getElementById('edit_cpf');
-        
-        function aplicarMascaraCPF(e) {
-            let value = e.target.value.replace(/\D/g, ''); 
-            if (value.length > 11) value = value.slice(0, 11); 
-            value = value.replace(/(\d{3})(\d)/, '$1.$2');
-            value = value.replace(/(\d{3})(\d)/, '$1.$2');
-            value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-            e.target.value = value;
-        }
-        
-        if(addCpfInput) addCpfInput.addEventListener('input', aplicarMascaraCPF);
-        if(editCpfInput) editCpfInput.addEventListener('input', aplicarMascaraCPF);
-
         function openProductModal(card) {
             document.getElementById('modal-img').src = card.getAttribute('data-img');
             document.getElementById('modal-title').innerText = card.getAttribute('data-name');
             document.getElementById('modal-cat').innerText = card.getAttribute('data-cat');
             document.getElementById('modal-desc').innerText = card.getAttribute('data-desc');
+            
+            const idItem = parseInt(card.getAttribute('data-id'));
             const qty = parseInt(card.getAttribute('data-qty'));
             const stockEl = document.getElementById('modal-stock');
             const btnEl = document.querySelector('.modal-add-btn');
+            
+            document.getElementById('product-modal').setAttribute('data-id-item', idItem);
             document.getElementById('modal-qty').max = qty;
             document.getElementById('modal-qty').value = 1;
 
@@ -523,17 +494,20 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             }
             document.getElementById('product-modal').style.display = 'flex';
         }
+        
         function closeProductModal() { document.getElementById('product-modal').style.display = 'none'; }
+        
         function addToCartFromModal() {
+            const modal = document.getElementById('product-modal');
+            const idItem = parseInt(modal.getAttribute('data-id-item'));
             const img = document.getElementById('modal-img').src;
             const name = document.getElementById('modal-title').innerText;
-            const cat = document.getElementById('modal-cat').innerText;
             const qty = parseInt(document.getElementById('modal-qty').value);
-            const card = document.querySelector('.item-card[data-name="' + name + '"]');
+            const card = document.querySelector(`.item-card[data-id="${idItem}"]`);
             const code = card ? card.getAttribute('data-cat-id') : '000';
             const stock = card ? parseInt(card.getAttribute('data-stock')) : 0;
 
-            const existingItem = cart.find(i => i.id === name);
+            const existingItem = cart.find(i => i.id_item === idItem);
             const currentQty = existingItem ? existingItem.qty : 0;
 
             if (currentQty + qty > stock) {
@@ -542,7 +516,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             }
 
             const item = {
-                id: name,
+                id_item: idItem,
                 img: img,
                 name: name,
                 code: code,
@@ -556,6 +530,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         }
 
         function addToCartFromCard(card) {
+            const idItem = parseInt(card.getAttribute('data-id'));
             const img = card.getAttribute('data-img');
             const name = card.getAttribute('data-name');
             const code = card.getAttribute('data-cat-id');
@@ -563,7 +538,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             const desc = card.getAttribute('data-desc');
             const qty = 1;
 
-            const existingItem = cart.find(i => i.id === name);
+            const existingItem = cart.find(i => i.id_item === idItem);
             const currentQty = existingItem ? existingItem.qty : 0;
 
             if (currentQty + qty > stock) {
@@ -572,7 +547,7 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             }
 
             const item = {
-                id: name,
+                id_item: idItem,
                 img: img,
                 name: name,
                 code: code,
@@ -584,14 +559,8 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             addToCart(item);
         }
 
-        function updateQty(btn, change) {
-            const input = btn.parentElement.querySelector('.qty-input');
-            let newValue = parseInt(input.value) + change;
-            input.value = newValue < 1 ? 1 : newValue;
-        }
-
         function openCartProductModal(itemId) {
-            const item = cart.find(i => i.id === itemId);
+            const item = cart.find(i => i.id_item === itemId);
             if (!item) return;
 
             document.getElementById('modal-img').src = item.img;
@@ -646,7 +615,15 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
 
         let prazosAdmSelecionados = { devolucaoAdm: '7', renova: '7' }; 
 
-        function openCheckoutModal(e) { e.preventDefault(); document.getElementById('checkoutModal').style.display = 'flex'; }
+        function openCheckoutModal(e) { 
+            if (e) e.preventDefault();
+            if (cart.length === 0) {
+                showToast('Seu carrinho está vazio!', 'error');
+                return;
+            }
+            document.getElementById('checkoutModal').style.display = 'flex'; 
+        }
+        
         function closeCheckoutModal() { document.getElementById('checkoutModal').style.display = 'none'; }
         
         function selectCheckoutOption(group, btn, val) {
@@ -656,12 +633,40 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             prazosAdmSelecionados[group] = val;
 
             const dinamicoContainer = document.getElementById('container-dinamico-' + group);
-            if (dinamicoContainer) {
-                dinamicoContainer.style.display = (val === 'dinamico') ? 'block' : 'none';
+            const inputDev = document.getElementById('input-data-dev-adm');
+            const inputDinamicoFlag = document.getElementById('input-prazo-dinamico-adm');
+
+            if (group === 'devolucaoAdm') {
+                if (val === 'dinamico') {
+                    if (dinamicoContainer) dinamicoContainer.style.display = 'block';
+                    if (inputDinamicoFlag) inputDinamicoFlag.value = "1";
+                } else {
+                    if (dinamicoContainer) dinamicoContainer.style.display = 'none';
+                    if (inputDinamicoFlag) inputDinamicoFlag.value = "0";
+
+                    let dias = parseInt(val);
+                    let dataHoje = new Date();
+                    dataHoje.setDate(dataHoje.getDate() + dias);
+                    if (inputDev) inputDev.value = dataHoje.toISOString().split('T')[0];
+                }
+            } else {
+                if (dinamicoContainer) {
+                    dinamicoContainer.style.display = (val === 'dinamico') ? 'block' : 'none';
+                }
             }
         }
         
+        function atualizarDataDevAdm(valor) {
+            const inputDev = document.getElementById('input-data-dev-adm');
+            if (inputDev) inputDev.value = valor;
+        }
+        
         function confirmOrder() { 
+            if (cart.length === 0) {
+                showToast('Seu carrinho está vazio!', 'error');
+                return;
+            }
+
             if (prazosAdmSelecionados['devolucaoAdm'] === 'dinamico') {
                 const data = document.getElementById('data-dinamica-devolucaoAdm').value;
                 const just = document.getElementById('justificativa-devolucaoAdm').value.trim();
@@ -671,15 +676,19 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                 }
             }
 
-            const isExpress = document.getElementById('retirada-expressa-adm').checked;
-            if(isExpress) {
-                showToast('Pedido Express registrado com sucesso! (Urgente)', 'success');
-            } else {
-                showToast('Pedido Finalizado com sucesso!', 'success');
-            }
+            const containerOculto = document.getElementById('inputs-carrinho-ocultos-adm');
+            containerOculto.innerHTML = '';
+            
+            cart.forEach(item => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = `itens[${item.id_item}]`;
+                input.value = item.qty;
+                containerOculto.appendChild(input);
+            });
 
-            closeCheckoutModal(); 
-            switchAppView('view-pedidos', document.getElementById('nav-pedidos-btn')); 
+            localStorage.removeItem('cartAdmin');
+            document.getElementById('form-realizar-pedido-adm').submit();
         }
 
         function openRenewalModal() { document.getElementById('modalRenovacao').style.display = 'flex'; }
@@ -765,6 +774,14 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
         });
 
         document.addEventListener('DOMContentLoaded', function() {
+            <?php if (!empty($msg_sucesso_pedido)): ?>
+                showToast(<?php echo json_encode($msg_sucesso_pedido); ?>, 'success');
+            <?php endif; ?>
+
+            <?php if (!empty($msg_erro_pedido)): ?>
+                showToast(<?php echo json_encode($msg_erro_pedido); ?>, 'error');
+            <?php endif; ?>
+
             const inputBusca = document.getElementById('input-busca');
             if (inputBusca) {
                 inputBusca.addEventListener('input', aplicarFiltros);
