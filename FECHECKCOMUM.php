@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once 'sessao.php';
 require_once 'conexao.php';
 
 if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_tipo'] !== 'padrao') {
@@ -10,9 +10,6 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_tipo'] !== 'padrao') {
 $id_usuario = $_SESSION['usuario_id'];
 $aba_ativa = "tab-catalogo";
 
-$msg_sucesso_pedido = $_SESSION['sucesso_pedido'] ?? '';
-$msg_erro_pedido = $_SESSION['erro_pedido'] ?? '';
-unset($_SESSION['sucesso_pedido'], $_SESSION['erro_pedido']);
 
 $sql_cat = "SELECT i.*, c.Nome as nome_categoria 
             FROM Item i 
@@ -21,6 +18,7 @@ $sql_cat = "SELECT i.*, c.Nome as nome_categoria
             AND (c.status_cat = 'ativo' OR c.status_cat IS NULL)
             ORDER BY i.Nome ASC";
 $resultado_itens = $conn->query($sql_cat);
+
 
 $categorias_disponiveis = $conn->query("SELECT * FROM Categoria WHERE status_cat = 'ativo' OR status_cat IS NULL ORDER BY Nome ASC");
 $categorias_array = [];
@@ -33,47 +31,42 @@ if ($categorias_disponiveis) {
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
     $aba_ativa = "tab-conta";
     $novo_email = trim($_POST['email']);
-    $senha_atual = $_POST['senha_atual'];
-    $nova_senha = $_POST['nova_senha'];
-    $confirma_senha = $_POST['confirma_senha'];
+    $senha_atual =$_POST['senha_atual'];
+    $nova_senha =$_POST['nova_senha'];
+    $confirma_senha =$_POST['confirma_senha'];
 
-    $stmt_check = $conn->prepare("SELECT Email, Senha FROM Usuarios WHERE id_user = ?");
-    $stmt_check->bind_param("i", $id_usuario);
-    $stmt_check->execute();
-    $user_db = $stmt_check->get_result()->fetch_assoc();
+    $stmt_check =$conn->prepare("SELECT Email, Senha FROM Usuarios WHERE id_user = ?");
+    $stmt_check->bind_param("i", $id_usuario);$stmt_check->execute();
+    $user_db =$stmt_check->get_result()->fetch_assoc();
 
     try {
         if (!empty($nova_senha)) {
-            if ($nova_senha !== $confirma_senha) {
-                $_SESSION['msg_erro'] = "As novas senhas não coincidem.";
-            } else if (!password_verify($senha_atual, $user_db['Senha'])) {
-                $_SESSION['msg_erro'] = "A senha atual está incorreta.";
+            if ($nova_senha !== $confirma_senha) {$_SESSION['msg_erro'] = "As novas senhas não coincidem.";
+            } else if (!password_verify($senha_atual, $user_db['Senha'])) {$_SESSION['msg_erro'] = "A senha atual está incorreta.";
             } else {
                 $senha_hash = password_hash($nova_senha, PASSWORD_DEFAULT);
-                $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ?, Senha = ? WHERE id_user = ?");
-                $stmt_upd->bind_param("ssi", $novo_email, $senha_hash, $id_usuario);
-                $stmt_upd->execute();
-                $_SESSION['msg_sucesso'] = "Dados atualizados com sucesso!";
+                $stmt_upd =$conn->prepare("UPDATE Usuarios SET Email = ?, Senha = ? WHERE id_user = ?");
+                $stmt_upd->bind_param("ssi", $novo_email, $senha_hash,$id_usuario);
+                $stmt_upd->execute();$_SESSION['msg_sucesso'] = "Dados atualizados com sucesso!";
             }
         } else {
-            if ($novo_email !== $user_db['Email']) {
-                $stmt_upd = $conn->prepare("UPDATE Usuarios SET Email = ? WHERE id_user = ?");
-                $stmt_upd->bind_param("si", $novo_email, $id_usuario);
-                $stmt_upd->execute();
-                $_SESSION['msg_sucesso'] = "E-mail atualizado com sucesso!";
+            if ($novo_email !==$user_db['Email']) {
+                $stmt_upd =$conn->prepare("UPDATE Usuarios SET Email = ? WHERE id_user = ?");
+                $stmt_upd->bind_param("si", $novo_email,$id_usuario);
+                $stmt_upd->execute();$_SESSION['msg_sucesso'] = "E-mail atualizado com sucesso!";
             } else {
                 $_SESSION['msg_warning'] = "Nenhuma alteração foi feita.";
             }
         }
-    } catch (Exception $e) {
-        $_SESSION['msg_erro'] = "Erro: O E-mail digitado já está em uso.";
+    } catch (Exception $e) {$_SESSION['msg_erro'] = "Erro: O E-mail digitado já está em uso.";
     }
+    session_write_close();
     header("Location: FECHECKCOMUM.php?aba=tab-conta");
     exit();
 }
 
 if (isset($_GET['aba'])) {
-    $aba_ativa = $_GET['aba'];
+    $aba_ativa =$_GET['aba'];
 }
 ?>
 <!DOCTYPE html>
@@ -87,6 +80,7 @@ if (isset($_GET['aba'])) {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="pedidos_api_cliente.js?v=<?php echo time(); ?>"></script>
     
     <link rel="stylesheet" href="FECHECKCOMUMCSS.css?v=<?php echo time(); ?>"> 
 </head>
@@ -118,7 +112,7 @@ if (isset($_GET['aba'])) {
                     <button type="button" class="filter-option active" data-cat-id="" onclick="selecionarCategoria('', 'Todas')">
                         <i class="bi bi-grid"></i> Todas as Categorias
                     </button>
-                    <?php foreach ($categorias_array as $cat): ?>
+                    <?php foreach ($categorias_array as$cat): ?>
                         <button type="button" class="filter-option" data-cat-id="<?php echo (int)$cat['id_cat']; ?>" onclick="selecionarCategoria('<?php echo (int)$cat['id_cat']; ?>', '<?php echo htmlspecialchars($cat['Nome'], ENT_QUOTES); ?>')">
                             <i class="bi bi-tag"></i> <?php echo htmlspecialchars($cat['Nome']); ?>
                         </button>
@@ -160,15 +154,14 @@ if (isset($_GET['aba'])) {
         
         <div id="tab-catalogo" class="spa-tab" style="<?php echo $aba_ativa === 'tab-catalogo' ? 'display: block;' : 'display: none;'; ?>">
             <div class="item-grid">
-                <?php if ($resultado_itens && $resultado_itens->num_rows > 0): ?>
-                    <?php while($item = $resultado_itens->fetch_assoc()): ?>
+                <?php if ($resultado_itens &&$resultado_itens->num_rows > 0): ?>
+                    <?php while($item =$resultado_itens->fetch_assoc()): ?>
                         <?php 
                             $quantidade = (int)$item['Qntd']; 
                             $indisponivel = ($quantidade <= 0);
                             $imagem_nome = trim($item['Imagem'] ?? '');
                             
-                            if (empty($imagem_nome)) {
-                                $imagem = 'LOGOCHECKSEMDESCR.jpg';
+                            if (empty($imagem_nome)) {$imagem = 'LOGOCHECKSEMDESCR.jpg';
                             } elseif (file_exists($imagem_nome)) {
                                 $imagem = htmlspecialchars($imagem_nome);
                             } elseif (file_exists('uploads/' . $imagem_nome)) {
@@ -251,7 +244,7 @@ if (isset($_GET['aba'])) {
                             <input type="number" id="modal-qty" value="1" min="1">
                         </div>
                         
-                        <?php if (isset($status_exibicao) && $status_exibicao === 'bloqueado'): ?>
+                        <?php if (isset($status_exibicao) &&$status_exibicao === 'bloqueado'): ?>
                             <button class="btn-submit disabled" onclick="showToast('Sua conta está bloqueada pelo Administrador.', 'error')">
                                 <i class="bi bi-slash-circle"></i> Bloqueado
                             </button>
@@ -266,52 +259,42 @@ if (isset($_GET['aba'])) {
         </div>
     </div>
 
-    <!-- Modal de Agendamento/Finalização de Pedido com Formulário Real -->
     <div id="checkoutModal" class="modal-overlay" onclick="if(event.target === this) closeModal('checkoutModal')">
         <div class="modal-content">
             <h3><i class="bi bi-calendar-check"></i> Agendamento do Pedido</h3>
             
-            <form id="form-realizar-pedido" action="processar_pedido.php" method="POST">
-                <!-- Inputs ocultos preenchidos dinamicamente via JS com os itens do carrinho -->
-                <div id="inputs-carrinho-ocultos"></div>
-
-                <div class="modal-section" style="margin-top: 20px; text-align: left;">
-                    <label class="modal-label" style="display:block; font-weight:bold; margin-bottom:10px;">Tipo de Retirada:</label>
-                    <div style="display: flex; align-items: center; gap: 10px; background: #fff8f8; padding: 12px; border-radius: 8px; border: 1px solid #f5c6cb;">
-                        <input type="checkbox" name="retirada_expressa" value="1" id="retirada-expressa" style="width: 20px; height: 20px; accent-color: #dc3545; cursor:pointer;">
-                        <label for="retirada-expressa" style="cursor: pointer; font-weight: 600; color: #dc3545; margin:0;">
-                            <i class="bi bi-lightning-charge-fill"></i> Retirada Expressa (Urgente)
-                        </label>
-                    </div>
-                    <p style="font-size: 0.8rem; color: #666; margin-top: 5px;">* Marque apenas se precisar de separação imediata dos materiais.</p>
+            <div class="modal-section" style="margin-top: 20px; text-align: left;">
+                <label class="modal-label" style="display:block; font-weight:bold; margin-bottom:10px;">Tipo de Retirada:</label>
+                <div style="display: flex; align-items: center; gap: 10px; background: #fff8f8; padding: 12px; border-radius: 8px; border: 1px solid #f5c6cb;">
+                    <input type="checkbox" id="retirada-expressa" style="width: 20px; height: 20px; accent-color: #dc3545; cursor:pointer;">
+                    <label for="retirada-expressa" style="cursor: pointer; font-weight: 600; color: #dc3545; margin:0;">
+                        <i class="bi bi-lightning-charge-fill"></i> Retirada Expressa (Urgente)
+                    </label>
                 </div>
+                <p style="font-size: 0.8rem; color: #666; margin-top: 5px;">* Marque apenas se precisar de separação imediata dos materiais.</p>
+            </div>
 
-                <div class="modal-section" style="margin-top: 20px;">
-                    <label class="modal-label" style="display:block; text-align:left; font-weight:bold; margin-bottom:10px;">Prazo de devolução desejado:</label>
-                    <div class="days-options" id="devolucaoOptions">
-                        <button type="button" class="day-btn selected" onclick="selectOption('devolucao', this, '7')">7 Dias</button>
-                        <button type="button" class="day-btn" onclick="selectOption('devolucao', this, '15')">15 Dias</button>
-                        <button type="button" class="day-btn" onclick="selectOption('devolucao', this, '30')">30 Dias</button>
-                        <button type="button" class="day-btn" onclick="selectOption('devolucao', this, 'dinamico')">Dinâmico</button>
-                    </div>
-                    
-                    <input type="hidden" name="prazo_dinamico" id="input-prazo-dinamico" value="0">
-                    <input type="hidden" name="data_ret" value="<?php echo date('Y-m-d'); ?>">
-                    <input type="hidden" name="data_dev" id="input-data-dev" value="<?php echo date('Y-m-d', strtotime('+7 days')); ?>">
-
-                    <div id="container-dinamico-devolucao" style="display: none; margin-top: 15px; text-align: left;">
-                        <label class="modal-label">Data Específica:</label>
-                        <input type="date" id="data-dinamica-devolucao" onchange="atualizarDataDev(this.value)" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; margin-bottom:10px; outline:none;">
-                        <label class="modal-label">Justificativa (Obrigatória):</label>
-                        <textarea name="justificativa" id="justificativa-devolucao" rows="3" placeholder="Explique a necessidade deste prazo..." style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; outline:none; resize:none;"></textarea>
-                    </div>
+            <div class="modal-section" style="margin-top: 20px;">
+                <label class="modal-label" style="display:block; text-align:left; font-weight:bold; margin-bottom:10px;">Prazo de devolução desejado:</label>
+                <div class="days-options" id="devolucaoOptions">
+                    <button class="day-btn selected" onclick="selectOption('devolucao', this, '7')">7 Dias</button>
+                    <button class="day-btn" onclick="selectOption('devolucao', this, '15')">15 Dias</button>
+                    <button class="day-btn" onclick="selectOption('devolucao', this, '30')">30 Dias</button>
+                    <button class="day-btn" onclick="selectOption('devolucao', this, 'dinamico')">Dinâmico</button>
                 </div>
                 
-                <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%; border-top: 1px solid #eee; padding-top: 15px;">
-                    <button type="button" class="btn-cancel" onclick="closeModal('checkoutModal')">Cancelar</button>
-                    <button type="button" class="btn-submit" onclick="confirmOrder()">Confirmar Pedido</button>
+                <div id="container-dinamico-devolucao" style="display: none; margin-top: 15px; text-align: left;">
+                    <label class="modal-label">Data Específica:</label>
+                    <input type="date" id="data-dinamica-devolucao" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; margin-bottom:10px; outline:none;">
+                    <label class="modal-label">Justificativa (Obrigatória):</label>
+                    <textarea id="justificativa-devolucao" rows="3" placeholder="Explique a necessidade deste prazo..." style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; outline:none; resize:none;"></textarea>
                 </div>
-            </form>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px; width: 100%; border-top: 1px solid #eee; padding-top: 15px;">
+                <button class="btn-cancel" onclick="closeModal('checkoutModal')">Cancelar</button>
+                <button class="btn-submit" onclick="confirmOrder()">Confirmar Pedido</button>
+            </div>
         </div>
     </div>
 
@@ -321,10 +304,10 @@ if (isset($_GET['aba'])) {
             <p style="margin: 15px 0;">Escolha o novo prazo de devolução desejado:</p>
             
             <div class="days-options" id="renovacaoOptions" style="margin-bottom: 15px;">
-                <button type="button" class="day-btn selected" onclick="selectOption('renovacao', this, '7')">7 Dias</button>
-                <button type="button" class="day-btn" onclick="selectOption('renovacao', this, '15')">15 Dias</button>
-                <button type="button" class="day-btn" onclick="selectOption('renovacao', this, '30')">30 Dias</button>
-                <button type="button" class="day-btn" onclick="selectOption('renovacao', this, 'dinamico')">Dinâmico</button>
+                <button class="day-btn selected" onclick="selectOption('renovacao', this, '7')">7 Dias</button>
+                <button class="day-btn" onclick="selectOption('renovacao', this, '15')">15 Dias</button>
+                <button class="day-btn" onclick="selectOption('renovacao', this, '30')">30 Dias</button>
+                <button class="day-btn" onclick="selectOption('renovacao', this, 'dinamico')">Dinâmico</button>
             </div>
             
             <div id="container-dinamico-renovacao" style="display: none; margin-top: 15px; text-align: left;">
@@ -341,6 +324,7 @@ if (isset($_GET['aba'])) {
         </div>
     </div>
 
+    <!-- Modal de Confirmação Personalizado para o Carrinho -->
     <div id="modalConfirmCart" class="modal-overlay" style="display: none;">
         <div class="modal-content">
             <h3 class="modal-heading-red" style="margin-top:0; color: #0f006d;">
@@ -359,6 +343,7 @@ if (isset($_GET['aba'])) {
     <div id="toast-container"></div>
 
     <script>
+        // Sistema de Carrinho Dinâmico
         let cart = JSON.parse(localStorage.getItem('cartComum')) || [];
 
         function saveCart() {
@@ -366,7 +351,7 @@ if (isset($_GET['aba'])) {
         }
 
         function addToCart(item) {
-            const existingItem = cart.find(i => i.id_item === item.id_item);
+            const existingItem = cart.find(i => i.id === item.id);
             if (existingItem) {
                 existingItem.qty += item.qty;
             } else {
@@ -377,19 +362,17 @@ if (isset($_GET['aba'])) {
             showToast('Item adicionado ao carrinho!', 'success');
         }
 
-        function abrirModalCartConfirm(mensagem, callback) {
-            const modal = document.getElementById('modalConfirmCart');
-            const msgEl = document.getElementById('modal-cart-confirm-msg');
-            const btnConfirmar = document.getElementById('btn-cart-confirmar');
-
-            msgEl.innerText = mensagem;
-            modal.style.display = 'flex';
-
-            btnConfirmar.onclick = function() {
-                fecharModalCart();
-                if (callback) callback();
-            };
-        }
+        function abrirModalCartConfirm(mensagem, callback, rotulo = 'Remover') {
+    const modal = document.getElementById('modalConfirmCart');
+    document.getElementById('modal-cart-confirm-msg').innerText = mensagem;
+    const btnConfirmar = document.getElementById('btn-cart-confirmar');
+    btnConfirmar.innerText = rotulo;
+    modal.style.display = 'flex';
+    btnConfirmar.onclick = function() {
+        fecharModalCart();
+        if (callback) callback();
+    };
+}
 
         function fecharModalCart() {
             const modal = document.getElementById('modalConfirmCart');
@@ -398,7 +381,7 @@ if (isset($_GET['aba'])) {
 
         function removeFromCart(itemId) {
             abrirModalCartConfirm('Tem certeza que deseja excluir este item do carrinho?', function() {
-                cart = cart.filter(i => i.id_item !== itemId);
+                cart = cart.filter(i => i.id !== itemId);
                 saveCart();
                 renderCart();
                 showToast('Item removido do carrinho', 'warning');
@@ -406,7 +389,7 @@ if (isset($_GET['aba'])) {
         }
 
         function updateCartQty(itemId, change) {
-            const item = cart.find(i => i.id_item === itemId);
+            const item = cart.find(i => i.id === itemId);
             if (item) {
                 const newQty = item.qty + change;
                 if (change > 0 && newQty > item.stock) {
@@ -415,7 +398,7 @@ if (isset($_GET['aba'])) {
                 }
                 if (change < 0 && item.qty === 1) {
                     abrirModalCartConfirm('Deseja remover este item do carrinho?', function() {
-                        cart = cart.filter(i => i.id_item !== itemId);
+                        cart = cart.filter(i => i.id !== itemId);
                         saveCart();
                         renderCart();
                         showToast('Item removido do carrinho', 'warning');
@@ -439,18 +422,18 @@ if (isset($_GET['aba'])) {
             }
 
             cartList.innerHTML = cart.map(item => `
-                <div class="cart-item" data-id="${item.id_item}" onclick="openCartProductModal(${item.id_item})">
+                <div class="cart-item" data-id="${item.id}" onclick="openCartProductModal('${item.id}')">
                     <img src="${item.img}" alt="${item.name}" class="cart-item-img">
                     <div class="cart-item-info">
                         <strong class="cart-item-name">${item.name}</strong>
                         <span class="cart-item-code">Cód: #${item.code}</span>
                     </div>
                     <div class="quantity-controls">
-                        <button class="qty-btn minus" onclick="event.stopPropagation(); updateCartQty(${item.id_item}, -1)">-</button>
+                        <button class="qty-btn minus" onclick="event.stopPropagation(); updateCartQty('${item.id}', -1)">-</button>
                         <input type="text" value="${item.qty}" class="qty-input" readonly>
-                        <button class="qty-btn plus" onclick="event.stopPropagation(); updateCartQty(${item.id_item}, 1)">+</button>
+                        <button class="qty-btn plus" onclick="event.stopPropagation(); updateCartQty('${item.id}', 1)">+</button>
                     </div>
-                    <button class="remove-btn" title="Remover item" onclick="event.stopPropagation(); removeFromCart(${item.id_item})"><i class="bi bi-trash"></i></button>
+                    <button class="remove-btn" title="Remover item" onclick="event.stopPropagation(); removeFromCart('${item.id}')"><i class="bi bi-trash"></i></button>
                 </div>
             `).join('');
         }
@@ -533,17 +516,30 @@ if (isset($_GET['aba'])) {
         }
 
         function switchTab(tabId, titleText, navId) {
-            document.querySelectorAll('.spa-tab').forEach(t => t.style.display = 'none');
-            document.getElementById(tabId).style.display = 'block';
-            document.getElementById('page-main-title').innerText = titleText;
-            
-            const searchBar = document.getElementById('global-search-bar');
-            if(searchBar) searchBar.style.display = (tabId === 'tab-catalogo') ? 'flex' : 'none';
+    document.querySelectorAll('.spa-tab').forEach(t => t.style.display = 'none');
+    const alvo = document.getElementById(tabId);
+    if (alvo) alvo.style.display = 'block';
+    document.getElementById('page-main-title').innerText = titleText;
 
-            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-            if(navId) document.getElementById(navId).classList.add('active');
+    const searchBar = document.getElementById('global-search-bar');
+    if (searchBar) searchBar.style.display = (tabId === 'tab-catalogo') ? 'flex' : 'none';
 
-            window.scrollTo({ top: 0, behavior: 'smooth' }); 
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    if (navId && document.getElementById(navId)) document.getElementById(navId).classList.add('active');
+
+    try { sessionStorage.setItem('comumTabAtiva', tabId); } catch (e) {}
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+        function filterPedidos(status) {
+            const cards = document.querySelectorAll('#lista-de-pedidos-aluno .pedido-card');
+            cards.forEach(card => {
+                if (status === 'todos' || card.getAttribute('data-status') === status) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
         }
 
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
@@ -566,13 +562,10 @@ if (isset($_GET['aba'])) {
             document.getElementById('modal-cat').innerText = el.getAttribute('data-cat');
             document.getElementById('modal-desc').innerText = el.getAttribute('data-desc');
             
-            const idItem = parseInt(el.getAttribute('data-id'));
             const qty = parseInt(el.getAttribute('data-qty'));
             const stockEl = document.getElementById('modal-stock');
             const qtyInput = document.getElementById('modal-qty');
             const btnEl = document.getElementById('modal-btn-adicionar');
-
-            document.getElementById('productModal').setAttribute('data-id-item', idItem);
 
             if (qty > 0) {
                 stockEl.innerText = qty + ' unidades em estoque';
@@ -602,70 +595,53 @@ if (isset($_GET['aba'])) {
             document.getElementById('productModal').style.display = 'flex';
         }
 
-        function addToCartFromModal() {
-            const modal = document.getElementById('productModal');
-            const idItem = parseInt(modal.getAttribute('data-id-item'));
-            const img = document.getElementById('modal-img').src;
-            const name = document.getElementById('modal-title').innerText;
-            const qty = parseInt(document.getElementById('modal-qty').value);
-            const card = document.querySelector(`.item-card[data-id="${idItem}"]`);
-            const code = card ? card.getAttribute('data-cat-id') : '000';
-            const stock = card ? parseInt(card.getAttribute('data-stock')) : 0;
-            
-            const existingItem = cart.find(i => i.id_item === idItem);
-            const currentQty = existingItem ? existingItem.qty : 0;
-            
-            if (currentQty + qty > stock) {
-                showToast(`Estoque insuficiente! Disponível: ${stock} unidades.`, 'error');
-                return;
-            }
-            
-            const item = {
-                id_item: idItem,
-                img: img,
-                name: name,
-                code: code,
-                qty: qty,
-                stock: stock,
-                desc: card ? card.getAttribute('data-desc') : ''
-            };
-            
-            addToCart(item);
-            closeModal('productModal');
-        }
+     function addToCartFromModal() {
+    const img = document.getElementById('modal-img').src;
+    const name = document.getElementById('modal-title').innerText;
+    const qty = parseInt(document.getElementById('modal-qty').value);
+    const card = document.querySelector('.item-card[data-name="' + name + '"]');
+    const code = card ? card.getAttribute('data-cat-id') : '000';
+    const stock = card ? parseInt(card.getAttribute('data-stock')) : 0;
 
-        function addToCartFromCard(card) {
-            const idItem = parseInt(card.getAttribute('data-id'));
-            const img = card.getAttribute('data-img');
-            const name = card.getAttribute('data-name');
-            const code = card.getAttribute('data-cat-id');
-            const stock = parseInt(card.getAttribute('data-stock'));
-            const desc = card.getAttribute('data-desc');
-            const qty = 1;
-            
-            const existingItem = cart.find(i => i.id_item === idItem);
-            const currentQty = existingItem ? existingItem.qty : 0;
-            
-            if (currentQty + qty > stock) {
-                showToast(`Estoque insuficiente! Disponível: ${stock} unidades.`, 'error');
-                return;
-            }
-            
-            const item = {
-                id_item: idItem,
-                img: img,
-                name: name,
-                code: code,
-                qty: qty,
-                stock: stock,
-                desc: desc
-            };
-            
-            addToCart(item);
+    const existingItem = cart.find(i => i.id === name);
+    const currentQty = existingItem ? existingItem.qty : 0;
+    if (currentQty + qty > stock) {
+        showToast(`Estoque insuficiente! Disponível: ${stock} unidades.`, 'error');
+        return;
+    }
+    addToCart({
+        id: name, itemId: card ? card.getAttribute('data-id') : null,
+        img: img, name: name, code: code, qty: qty, stock: stock,
+        desc: card ? card.getAttribute('data-desc') : ''
+    });
+    closeModal('productModal');
+}
+
+     function addToCartFromCard(card) {
+    const name = card.getAttribute('data-name');
+    const stock = parseInt(card.getAttribute('data-stock'));
+    const existingItem = cart.find(i => i.id === name);
+    const currentQty = existingItem ? existingItem.qty : 0;
+    if (currentQty + 1 > stock) {
+        showToast(`Estoque insuficiente! Disponível: ${stock} unidades.`, 'error');
+        return;
+    }
+    addToCart({
+        id: name, itemId: card.getAttribute('data-id'),
+        img: card.getAttribute('data-img'), name: name,
+        code: card.getAttribute('data-cat-id'), qty: 1, stock: stock,
+        desc: card.getAttribute('data-desc')
+    });
+}
+        function updateQty(btn, change) {
+            const input = btn.parentElement.querySelector('.qty-input');
+            let val = parseInt(input.value) + change;
+            if (val < 1) val = 1;
+            input.value = val;
         }
 
         function openCartProductModal(itemId) {
-            const item = cart.find(i => i.id_item === itemId);
+            const item = cart.find(i => i.id === itemId);
             if (!item) return;
 
             document.getElementById('modal-img').src = item.img;
@@ -728,96 +704,72 @@ if (isset($_GET['aba'])) {
             prazosSelecionados[group] = val;
 
             const dinamicoContainer = document.getElementById('container-dinamico-' + group);
-            const inputDev = document.getElementById('input-data-dev');
-            const inputDinamicoFlag = document.getElementById('input-prazo-dinamico');
-
-            if (val === 'dinamico') {
-                if (dinamicoContainer) dinamicoContainer.style.display = 'block';
-                if (inputDinamicoFlag) inputDinamicoFlag.value = "1";
-            } else {
-                if (dinamicoContainer) dinamicoContainer.style.display = 'none';
-                if (inputDinamicoFlag) inputDinamicoFlag.value = "0";
-
-                let dias = parseInt(val);
-                let dataHoje = new Date();
-                dataHoje.setDate(dataHoje.getDate() + dias);
-                if (inputDev) inputDev.value = dataHoje.toISOString().split('T')[0];
+            if (dinamicoContainer) {
+                dinamicoContainer.style.display = (val === 'dinamico') ? 'block' : 'none';
             }
         }
         
-        function atualizarDataDev(valor) {
-            const inputDev = document.getElementById('input-data-dev');
-            if (inputDev) inputDev.value = valor;
-        }
-
-        function openCheckoutModal() { 
-            if (cart.length === 0) {
-                showToast('Seu carrinho está vazio!', 'error');
-                return;
-            }
-            <?php if (isset($status_exibicao) && $status_exibicao === 'bloqueado'): ?>
-                showToast('Sua conta está bloqueada pelo Administrador.', 'error');
-            <?php else: ?>
-                document.getElementById('checkoutModal').style.display = 'flex'; 
-            <?php endif; ?>
-        }
+      function openCheckoutModal() {
+    if (cart.length === 0) { showToast('Seu carrinho está vazio.', 'warning'); return; }
+    document.getElementById('checkoutModal').style.display = 'flex';
+}
         
-        function confirmOrder() {
-            if (cart.length === 0) {
-                showToast('Seu carrinho está vazio!', 'error');
-                return;
-            }
+        async function confirmOrder() {
+    const prazo = prazosSelecionados['devolucao'];
+    const payload = {
+        acao: 'criar',
+        expressa: document.getElementById('retirada-expressa').checked,
+        prazo: prazo,
+        data_dinamica: document.getElementById('data-dinamica-devolucao').value,
+        justificativa: document.getElementById('justificativa-devolucao').value.trim(),
+        itens: []
+    };
+    if (prazo === 'dinamico' && (!payload.data_dinamica || !payload.justificativa)) {
+        showToast('Data e Justificativa são obrigatórias para prazos dinâmicos!', 'error');
+        return;
+    }
+    for (const item of cart) {
+        const id = resolverIdItem(item);
+        if (!id) { showToast('Item "' + item.name + '" não encontrado. Remova-o e adicione novamente.', 'error'); return; }
+        payload.itens.push({ id_item: parseInt(id), qty: item.qty });
+    }
+    const r = await apiPedidos(payload);
+    if (!r.ok) { showToast(r.msg, 'error'); return; }
 
-            if (prazosSelecionados['devolucao'] === 'dinamico') {
-                const data = document.getElementById('data-dinamica-devolucao').value;
-                const just = document.getElementById('justificativa-devolucao').value.trim();
-                if (!data || !just) {
-                    showToast('Data e Justificativa são obrigatórias para prazos dinâmicos!', 'error');
-                    return;
-                }
-            }
+    cart = []; saveCart();
+    closeModal('checkoutModal');
+    recarregarComMsg(r.codigo ? `Pedido #${r.codigo} enviado para análise!` : 'Pedido enviado!', 'success', 'FECHECKCOMUM.php?aba=tab-pedidos');
+}
 
-            const containerOculto = document.getElementById('inputs-carrinho-ocultos');
-            containerOculto.innerHTML = '';
-            
-            cart.forEach(item => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = `itens[${item.id_item}]`;
-                input.value = item.qty;
-                containerOculto.appendChild(input);
-            });
+let pedidoRenovacaoId = null;
+function openRenewalModal(id) { pedidoRenovacaoId = id; document.getElementById('modalRenovacao').style.display = 'flex'; }
 
-            localStorage.removeItem('cartComum');
-            document.getElementById('form-realizar-pedido').submit();
-        }
-
-        function openRenewalModal() { document.getElementById('modalRenovacao').style.display = 'flex'; }
         
-        function confirmRenewal() { 
-            if (prazosSelecionados['renovacao'] === 'dinamico') {
-                const data = document.getElementById('data-dinamica-renovacao').value;
-                const just = document.getElementById('justificativa-renovacao').value.trim();
-                if (!data || !just) {
-                    showToast('Data e Justificativa são obrigatórias para prazos dinâmicos!', 'error');
-                    return;
-                }
-            }
-            showToast(`Solicitação de renovação enviada com sucesso!`, 'success');
-            closeModal('modalRenovacao'); 
-        }
+        async function confirmRenewal() {
+    const prazo = prazosSelecionados['renovacao'];
+    const data = document.getElementById('data-dinamica-renovacao').value;
+    const just = document.getElementById('justificativa-renovacao').value.trim();
+    if (prazo === 'dinamico' && (!data || !just)) {
+        showToast('Data e Justificativa são obrigatórias para prazos dinâmicos!', 'error');
+        return;
+    }
+    const r = await apiPedidos({ acao: 'renovar', id_pedido: pedidoRenovacaoId, prazo: prazo, data_dinamica: data, justificativa: just });
+    if (!r.ok) { showToast(r.msg, 'error'); return; }
+    closeModal('modalRenovacao');
+    recarregarComMsg(r.msg, 'success', 'FECHECKCOMUM.php?aba=tab-pedidos');
+}
+
+function cancelarPedido(id) {
+    abrirModalCartConfirm('Deseja cancelar este pedido? Os itens voltarão ao estoque.', async function() {
+        const r = await apiPedidos({ acao: 'cancelar', id_pedido: id });
+        if (!r.ok) { showToast(r.msg, 'error'); return; }
+        recarregarComMsg(r.msg, 'warning', 'FECHECKCOMUM.php?aba=tab-pedidos');
+    }, 'Cancelar Pedido');
+}
+
 
         document.addEventListener('DOMContentLoaded', function() {
             renderCart();
-            
-            <?php if (!empty($msg_sucesso_pedido)): ?>
-                showToast(<?php echo json_encode($msg_sucesso_pedido); ?>, 'success');
-            <?php endif; ?>
-
-            <?php if (!empty($msg_erro_pedido)): ?>
-                showToast(<?php echo json_encode($msg_erro_pedido); ?>, 'error');
-            <?php endif; ?>
-
             const inputBusca = document.getElementById('search-bar');
             if (inputBusca) {
                 inputBusca.addEventListener('input', aplicarFiltros);
@@ -830,11 +782,25 @@ if (isset($_GET['aba'])) {
             }
         });
 
-        <?php if ($aba_ativa === "tab-conta"): ?>
-            window.addEventListener('DOMContentLoaded', function() {
-                switchTab('tab-conta', 'Minha Conta', 'nav-conta');
-            });
+        window.addEventListener('DOMContentLoaded', function() {
+        const abasConfig = {
+            'tab-catalogo': ['Catálogo de Itens', 'nav-catalogo'],
+            'tab-carrinho': ['Meu Carrinho', 'nav-carrinho'],
+            'tab-pedidos':  ['Meus Pedidos', 'nav-pedidos'],
+            'tab-conta':    ['Minha Conta', 'nav-conta']
+        };
+
+        <?php if (isset($_GET['aba']) && in_array($_GET['aba'], ['tab-catalogo', 'tab-carrinho', 'tab-pedidos', 'tab-conta'], true)): ?>
+            const abaPhp = '<?php echo $_GET['aba']; ?>';
+            switchTab(abaPhp, abasConfig[abaPhp][0], abasConfig[abaPhp][1]);
+        <?php else: ?>
+            let abaSalva = null;
+            try { abaSalva = sessionStorage.getItem('comumTabAtiva'); } catch (e) {}
+            if (abaSalva && abasConfig[abaSalva]) {
+                switchTab(abaSalva, abasConfig[abaSalva][0], abasConfig[abaSalva][1]);
+            }
         <?php endif; ?>
+    });
     </script>
 </body>
 </html>
