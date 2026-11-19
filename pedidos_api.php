@@ -1,13 +1,19 @@
 <?php
-session_start();
+require_once 'sessao.php';
 require_once 'conexao.php';
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 date_default_timezone_set('America/Sao_Paulo');
 header('Content-Type: application/json; charset=utf-8');
 
+define('LIMITE_RETIRADAS_ATIVAS', 3); // Máximo de pedidos/retiradas simultâneos em aberto por usuário
+define('LIMITE_RENOVACOES', 2);       // Máximo de vezes que um mesmo pedido pode ser renovado
+
 class RegraNegocio extends Exception {}
 
 function resp($ok, $msg, $extra = []) {
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
     echo json_encode(array_merge(['ok' => $ok, 'msg' => $msg], $extra));
     exit;
 }
@@ -67,6 +73,16 @@ try {
             $u = $conn->query("SELECT status FROM Usuarios WHERE id_user = $id_usuario")->fetch_assoc();
             if (!$u || $u['status'] === 'bloqueado') {
                 throw new RegraNegocio('Sua conta está bloqueada pelo Administrador.');
+            }
+
+            // Verifica o limite de retiradas/pedidos simultâneos em aberto
+            $stmtLim = $conn->prepare("SELECT COUNT(*) AS total FROM Pedido WHERE id_user = ? AND Status_pedido IN ('Pendente', 'Separacao', 'Pronto', 'Retirado')");
+            $stmtLim->bind_param("i", $id_usuario);
+            $stmtLim->execute();
+            $ativos = (int)$stmtLim->get_result()->fetch_assoc()['total'];
+
+            if ($ativos >= LIMITE_RETIRADAS_ATIVAS) {
+                throw new RegraNegocio('Você atingiu o limite máximo de ' . LIMITE_RETIRADAS_ATIVAS . ' retiradas/pedidos em andamento. Devolva um pedido antes de solicitar outro.');
             }
 
             $agrupado = [];
@@ -132,13 +148,21 @@ try {
             if ((int)$ped['id_user'] !== $id_usuario) throw new RegraNegocio('Este pedido não é seu.');
             if ($ped['Status_pedido'] !== 'Retirado') throw new RegraNegocio('Só é possível renovar pedidos retirados.');
 
+            $renovacoesAtuais = (int)($ped['renovacoes'] ?? 0);
+            if ($renovacoesAtuais >= LIMITE_RENOVACOES) {
+                throw new RegraNegocio('Este pedido já atingiu o limite máximo de ' . LIMITE_RENOVACOES . ' renovação(ões). Realize a devolução no laboratório.');
+            }
+
             $prazo = calcularPrazo($in);
             $stmt = $conn->prepare("UPDATE Pedido SET Data_dev = ?, Prazo_dinamico = IF(?=1, 1, Prazo_dinamico),
+                                    renovacoes = renovacoes + 1,
                                     Justificativa = CONCAT_WS(' | ', Justificativa, ?) WHERE id_pedido = ?");
             $just = $prazo['just'] ? ('Renovação: ' . $prazo['just']) : null;
             $stmt->bind_param("sisi", $prazo['data'], $prazo['dinamico'], $just, $ped['id_pedido']);
             $stmt->execute();
-            resp(true, 'Empréstimo renovado até ' . date('d/m/Y', strtotime($prazo['data'])) . '.');
+
+            $restantes = LIMITE_RENOVACOES - ($renovacoesAtuais + 1);
+            resp(true, 'Empréstimo renovado até ' . date('d/m/Y', strtotime($prazo['data'])) . '. Renovações restantes: ' . $restantes . '.');
             break;
 
         case 'aprovar':
