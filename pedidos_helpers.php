@@ -74,6 +74,7 @@ function renderPedidosUsuario($conn, $id_user) {
         ['Análise', 'bi-clipboard-data'], ['Separação', 'bi-gear-wide-connected'], ['Pronto', 'bi-bag-check'],
         ['Retirado', 'bi-box-arrow-up'], ['Devolvido', 'bi-arrow-return-left']
     ];
+    $limiteRenov = defined('LIMITE_RENOVACOES') ? LIMITE_RENOVACOES : 2;
 
     while ($p = $res->fetch_assoc()):
         $info    = statusPedidoInfo($p['Status_pedido']);
@@ -120,6 +121,7 @@ function renderPedidosUsuario($conn, $id_user) {
                 </div>
             <?php elseif ($p['Status_pedido'] === 'Retirado'):
                 $diff = (int)round((strtotime($p['Data_dev']) - strtotime(date('Y-m-d'))) / 86400);
+                $renovacoes = (int)($p['renovacoes'] ?? 0);
                 if ($diff < 0)       { $cls = 'error';   $ico = 'bi-exclamation-octagon-fill'; $msg = 'Devolução <strong>atrasada há ' . abs($diff) . ' dia(s)</strong> (prazo: ' . fmtData($p['Data_dev']) . ')'; }
                 elseif ($diff === 0) { $cls = 'warning'; $ico = 'bi-alarm-fill'; $msg = 'A devolução é <strong>hoje</strong>'; }
                 elseif ($diff <= 3)  { $cls = 'warning'; $ico = 'bi-alarm-fill'; $msg = 'Faltam <strong>' . $diff . ' dia(s)</strong> para a devolução (' . fmtData($p['Data_dev']) . ')'; }
@@ -127,7 +129,15 @@ function renderPedidosUsuario($conn, $id_user) {
             ?>
                 <div class="prazo-devolucao <?php echo $cls; ?>"><i class="bi <?php echo $ico; ?>"></i><span><?php echo $msg; ?></span></div>
                 <div class="pedido-actions">
-                    <button class="btn-renovar" onclick="openRenewalModal(<?php echo (int)$p['id_pedido']; ?>)"><i class="bi bi-arrow-repeat"></i> Renovar Empréstimo</button>
+                    <?php if ($renovacoes < $limiteRenov): ?>
+                        <button class="btn-renovar" onclick="openRenewalModal(<?php echo (int)$p['id_pedido']; ?>)">
+                            <i class="bi bi-arrow-repeat"></i> Renovar Empréstimo (<?php echo $renovacoes; ?>/<?php echo $limiteRenov; ?>)
+                        </button>
+                    <?php else: ?>
+                        <span style="font-size: 0.85rem; color: #dc3545; font-weight: 600;">
+                            <i class="bi bi-slash-circle"></i> Limite de renovações atingido (<?php echo $renovacoes; ?>/<?php echo $limiteRenov; ?>)
+                        </span>
+                    <?php endif; ?>
                 </div>
             <?php elseif ($p['Status_pedido'] === 'Finalizado'): ?>
                 <div class="prazo-devolucao success"><i class="bi bi-check-circle-fill"></i><span>Pedido encerrado em <?php echo fmtData($p['Data_devolvida']); ?>.</span></div>
@@ -146,7 +156,7 @@ function renderPedidosUsuario($conn, $id_user) {
                     } else {
                         $cls = ($i < $idx || $idx === 4) ? 'completed' : (($i === $idx) ? 'current' : '');
                         $icone = ($cls === 'completed') ? (($i === 4) ? 'bi-check-all' : 'bi-check-lg') : $passo[1];
-                        $label = ($i === 3 && $idx === 3) ? $passo[0] : $passo[0];
+                        $label = $passo[0];
                     }
                 ?>
                     <div class="step <?php echo $cls; ?>"><div class="step-icon"><i class="bi <?php echo $icone; ?>"></i></div><span class="step-label"><?php echo $label; ?></span></div>
