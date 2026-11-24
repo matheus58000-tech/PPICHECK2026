@@ -74,8 +74,6 @@ function renderPedidosUsuario($conn, $id_user) {
         ['Análise', 'bi-clipboard-data'], ['Separação', 'bi-gear-wide-connected'], ['Pronto', 'bi-bag-check'],
         ['Retirado', 'bi-box-arrow-up'], ['Devolvido', 'bi-arrow-return-left']
     ];
-    $limiteRenov = defined('LIMITE_RENOVACOES') ? LIMITE_RENOVACOES : 2;
-
     while ($p = $res->fetch_assoc()):
         $info    = statusPedidoInfo($p['Status_pedido']);
         $idx     = $info[3];
@@ -121,7 +119,18 @@ function renderPedidosUsuario($conn, $id_user) {
                 </div>
             <?php elseif ($p['Status_pedido'] === 'Retirado'):
                 $diff = (int)round((strtotime($p['Data_dev']) - strtotime(date('Y-m-d'))) / 86400);
-                $renovacoes = (int)($p['renovacoes'] ?? 0);
+                $limitesRenov = ['7' => 4, '15' => 2, '30' => 1, 'dinamico' => 1];
+                $usadosRenov = [
+                    '7'        => (int)($p['renov_7'] ?? 0),
+                    '15'       => (int)($p['renov_15'] ?? 0),
+                    '30'       => (int)($p['renov_30'] ?? 0),
+                    'dinamico' => (int)($p['renov_dinamico'] ?? 0),
+                ];
+                $restantesMap = [];
+                foreach ($limitesRenov as $tipoR => $limR) {
+                    $restantesMap[$tipoR] = max(0, $limR - $usadosRenov[$tipoR]);
+                }
+                $podeRenovar = array_sum($restantesMap) > 0;
                 if ($diff < 0)       { $cls = 'error';   $ico = 'bi-exclamation-octagon-fill'; $msg = 'Devolução <strong>atrasada há ' . abs($diff) . ' dia(s)</strong> (prazo: ' . fmtData($p['Data_dev']) . ')'; }
                 elseif ($diff === 0) { $cls = 'warning'; $ico = 'bi-alarm-fill'; $msg = 'A devolução é <strong>hoje</strong>'; }
                 elseif ($diff <= 3)  { $cls = 'warning'; $ico = 'bi-alarm-fill'; $msg = 'Faltam <strong>' . $diff . ' dia(s)</strong> para a devolução (' . fmtData($p['Data_dev']) . ')'; }
@@ -129,13 +138,13 @@ function renderPedidosUsuario($conn, $id_user) {
             ?>
                 <div class="prazo-devolucao <?php echo $cls; ?>"><i class="bi <?php echo $ico; ?>"></i><span><?php echo $msg; ?></span></div>
                 <div class="pedido-actions">
-                    <?php if ($renovacoes < $limiteRenov): ?>
-                        <button class="btn-renovar" onclick="openRenewalModal(<?php echo (int)$p['id_pedido']; ?>)">
-                            <i class="bi bi-arrow-repeat"></i> Renovar Empréstimo (<?php echo $renovacoes; ?>/<?php echo $limiteRenov; ?>)
+                    <?php if ($podeRenovar): ?>
+                        <button class="btn-renovar" data-restantes='<?php echo htmlspecialchars(json_encode($restantesMap), ENT_QUOTES); ?>' onclick="openRenewalModal(<?php echo (int)$p['id_pedido']; ?>, this)">
+                            <i class="bi bi-arrow-repeat"></i> Renovar Empréstimo
                         </button>
                     <?php else: ?>
                         <span style="font-size: 0.85rem; color: #dc3545; font-weight: 600;">
-                            <i class="bi bi-slash-circle"></i> Limite de renovações atingido (<?php echo $renovacoes; ?>/<?php echo $limiteRenov; ?>)
+                            <i class="bi bi-slash-circle"></i> Limite de renovações atingido
                         </span>
                     <?php endif; ?>
                 </div>
