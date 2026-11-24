@@ -26,7 +26,11 @@ if (!function_exists('redirectLab')) {
         $_SESSION['aba_ativa'] = $aba;
         $_SESSION['sub_aba_ativa'] = $sub_aba;
         session_write_close();
-        header("Location: FECHECKADM.php");
+        if (!headers_sent()) {
+            header("Location: FECHECKADM.php");
+        } else {
+            echo "<script>window.location.href='FECHECKADM.php';</script>";
+        }
         exit(); 
     }
 }
@@ -263,6 +267,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_categoria'])) {
             if (empty($nome_cat) || strlen($nome_cat) < 3) $erros_lab['cat_nome'] = "O nome deve ter no mínimo 3 caracteres.";
             if (empty($desc_cat) || strlen($desc_cat) < 10) $erros_lab['cat_desc'] = "A descrição deve ter no mínimo 10 caracteres.";
 
+            if (!isset($erros_lab['cat_nome'])) {
+                $stmt_dup = $conn->prepare("SELECT id_cat FROM Categoria WHERE LOWER(Nome) = LOWER(?) LIMIT 1");
+                $stmt_dup->bind_param("s", $nome_cat);
+                $stmt_dup->execute();
+                if ($stmt_dup->get_result()->num_rows > 0) {
+                    $erros_lab['cat_nome'] = "Já existe uma categoria com este nome.";
+                }
+                $stmt_dup->close();
+            }
+
             if (count($erros_lab) > 0) {
                 $erros_lab['geral'] = "Por favor, preencha as informações corretamente.";
                 $sub_aba_ativa = "tab-nova-categoria";
@@ -282,6 +296,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['acao_categoria'])) {
 
             if (empty($nome_cat) || strlen($nome_cat) < 3) $erros_lab['edit_cat_nome'] = "O nome deve ter no mínimo 3 caracteres.";
             if (empty($desc_cat) || strlen($desc_cat) < 10) $erros_lab['edit_cat_desc'] = "A descrição deve ter no mínimo 10 caracteres.";
+
+            if (!isset($erros_lab['edit_cat_nome'])) {
+                $stmt_dup = $conn->prepare("SELECT id_cat FROM Categoria WHERE LOWER(Nome) = LOWER(?) AND id_cat != ? LIMIT 1");
+                $stmt_dup->bind_param("si", $nome_cat, $id_cat);
+                $stmt_dup->execute();
+                if ($stmt_dup->get_result()->num_rows > 0) {
+                    $erros_lab['edit_cat_nome'] = "Já existe uma categoria com este nome.";
+                }
+                $stmt_dup->close();
+            }
 
             if (count($erros_lab) > 0) {
                 $erros_lab['geral_edit_cat'] = "Erro na edição. Verifique os campos.";
@@ -698,30 +722,48 @@ endforeach;
 
                                             <div style="flex: 1.5; min-width: 350px; background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
                                                 <h4 style="margin-top:0; margin-bottom: 20px; color: #444; font-size: 1.1rem;"><i class="bi bi-clock-history"></i> Histórico Recente de Pedidos</h4>
-                                                
-                                                <div style="border-left: 3px solid #10ac84; padding-left: 15px; margin-bottom: 20px;">
-                                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                                        <strong style="color: var(--primary-color); font-size: 1.1rem;">Pedido #2025-014</strong>
-                                                        <span style="background: #e6f7f2; color: #10ac84; border: 1px solid #10ac84; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">Devolvido Ok</span>
-                                                    </div>
-                                                    <p style="margin: 0 0 8px 0; font-size: 0.9rem; color: #555;"><strong>Itens:</strong> Arduino Uno R3 (x1), Multímetro (x1)</p>
-                                                    <div style="display: flex; gap: 20px; font-size: 0.85rem; color: #777;">
-                                                        <span><i class="bi bi-calendar-arrow-up"></i> Retirado: 12/11/2025</span>
-                                                        <span><i class="bi bi-calendar-check"></i> Devolvido: 19/11/2025</span>
-                                                    </div>
-                                                </div>
 
-                                                <div style="border-left: 3px solid #dc3545; padding-left: 15px; margin-bottom: 10px;">
+                                                <?php
+                                                $stmt_ped_user = $conn->prepare("SELECT * FROM Pedido WHERE id_user = ? ORDER BY id_pedido DESC LIMIT 5");
+                                                $stmt_ped_user->bind_param("i", $id_u);
+                                                $stmt_ped_user->execute();
+                                                $res_ped_user = $stmt_ped_user->get_result();
+                                                $tem_pedidos = false;
+                                                while ($ped = $res_ped_user->fetch_assoc()):
+                                                    $tem_pedidos = true;
+                                                    $info_ped = statusPedidoInfo($ped['Status_pedido']);
+                                                    $itens_ped = buscarItensDoPedido($conn, $ped['id_pedido']);
+                                                    $nomes_itens = [];
+                                                    foreach ($itens_ped as $itp) {
+                                                        $nomes_itens[] = htmlspecialchars($itp['Nome']) . ' (x' . (int)$itp['quantidade'] . ')';
+                                                    }
+                                                    $atrasado = ($ped['Status_pedido'] === 'Retirado' && !empty($ped['Data_dev']) && $ped['Data_dev'] < date('Y-m-d'));
+                                                    $cor_borda = $atrasado ? '#dc3545' : ($ped['Status_pedido'] === 'Finalizado' ? '#10ac84' : '#004aad');
+                                                    $cor_tag = $atrasado ? '#dc3545' : ($ped['Status_pedido'] === 'Finalizado' ? '#10ac84' : '#004aad');
+                                                    $bg_tag = $atrasado ? '#fff8f8' : ($ped['Status_pedido'] === 'Finalizado' ? '#e6f7f2' : '#eef3fb');
+                                                ?>
+                                                <div style="border-left: 3px solid <?php echo $cor_borda; ?>; padding-left: 15px; margin-bottom: 20px;">
                                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                                        <strong style="color: var(--primary-color); font-size: 1.1rem;">Pedido #2025-018</strong>
-                                                        <span style="background: #fff8f8; color: #dc3545; border: 1px solid #dc3545; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">Atrasado (Em Uso)</span>
+                                                        <strong style="color: var(--primary-color); font-size: 1.1rem;">Pedido #<?php echo htmlspecialchars($ped['codigo_pedido'] ?: $ped['id_pedido']); ?></strong>
+                                                        <span style="background: <?php echo $bg_tag; ?>; color: <?php echo $cor_tag; ?>; border: 1px solid <?php echo $cor_tag; ?>; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;"><?php echo $info_ped[2]; ?></span>
                                                     </div>
-                                                    <p style="margin: 0 0 8px 0; font-size: 0.9rem; color: #555;"><strong>Itens:</strong> Osciloscópio Digital (x1), Fio Jumper (x30)</p>
-                                                    <div style="display: flex; gap: 20px; font-size: 0.85rem; color: #777;">
-                                                        <span><i class="bi bi-calendar-arrow-up"></i> Retirado: 25/11/2025</span>
-                                                        <span style="color: #dc3545; font-weight: bold;"><i class="bi bi-exclamation-circle"></i> Prazo Venceu: 02/12/2025</span>
+                                                    <p style="margin: 0 0 8px 0; font-size: 0.9rem; color: #555;"><strong>Itens:</strong> <?php echo $nomes_itens ? implode(', ', $nomes_itens) : 'Nenhum item'; ?></p>
+                                                    <div style="display: flex; gap: 20px; font-size: 0.85rem; color: #777; flex-wrap: wrap;">
+                                                        <span><i class="bi bi-calendar-event"></i> Pedido: <?php echo fmtData($ped['Data_pedido'] ?? null); ?></span>
+                                                        <?php if (!empty($ped['Data_ret'])): ?>
+                                                        <span><i class="bi bi-calendar-arrow-up"></i> Retirado: <?php echo fmtData($ped['Data_ret']); ?></span>
+                                                        <?php endif; ?>
+                                                        <?php if ($ped['Status_pedido'] === 'Finalizado' && !empty($ped['Data_devolvida'])): ?>
+                                                        <span style="color: #10ac84; font-weight: bold;"><i class="bi bi-calendar-check"></i> Devolvido: <?php echo fmtData($ped['Data_devolvida']); ?></span>
+                                                        <?php elseif (!empty($ped['Data_dev'])): ?>
+                                                        <span <?php echo $atrasado ? 'style="color: #dc3545; font-weight: bold;"' : ''; ?>><i class="bi bi-calendar-x"></i> Devolução até: <?php echo fmtData($ped['Data_dev']); ?><?php echo $atrasado ? ' (atrasado)' : ''; ?></span>
+                                                        <?php endif; ?>
                                                     </div>
                                                 </div>
+                                                <?php endwhile; $stmt_ped_user->close(); ?>
+                                                <?php if (!$tem_pedidos): ?>
+                                                <p style="color: #777; font-size: 0.9rem; padding: 10px 0;"><i class="bi bi-inbox"></i> Nenhum pedido encontrado para este usuário.</p>
+                                                <?php endif; ?>
 
                                             </div>
                                         </div>
