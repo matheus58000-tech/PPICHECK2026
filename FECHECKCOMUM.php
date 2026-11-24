@@ -28,12 +28,36 @@ if ($categorias_disponiveis) {
     }
 }
 
+
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
     $aba_ativa = "tab-conta";
     $novo_email = trim($_POST['email']);
     $senha_atual =$_POST['senha_atual'];
     $nova_senha =$_POST['nova_senha'];
     $confirma_senha =$_POST['confirma_senha'];
+
+    $foto_ok = false;
+    if (isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK && $_FILES['foto']['size'] > 0) {
+        $ext = strtolower(pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION));
+        $tamanho_mb = round($_FILES['foto']['size'] / 1024 / 1024, 1);
+        if ($_FILES['foto']['size'] > 10 * 1024 * 1024) {
+            $_SESSION['msg_erro'] = "A imagem é muito pesada ({$tamanho_mb}MB). O limite é 10MB.";
+        } elseif (!in_array($ext, ['jpg', 'jpeg', 'jfif', 'png', 'gif', 'webp', 'bmp', 'avif'], true)) {
+            $_SESSION['msg_erro'] = "Formato inválido" . (!empty($ext) ? " (.{$ext})" : "") . ". Use JPG, PNG, GIF ou WebP.";
+        } else {
+            $antiga = $conn->query("SELECT Foto FROM Usuarios WHERE id_user = " . (int)$id_usuario)->fetch_assoc()['Foto'] ?? '';
+            $foto_nome = 'user_' . $id_usuario . '_' . uniqid() . '.' . $ext;
+            if (move_uploaded_file($_FILES['foto']['tmp_name'], 'uploads/' . $foto_nome)) {
+                $stmt_f = $conn->prepare("UPDATE Usuarios SET Foto = ? WHERE id_user = ?");
+                $stmt_f->bind_param("si", $foto_nome, $id_usuario);
+                $stmt_f->execute();
+                if (!empty($antiga) && file_exists('uploads/' . $antiga)) @unlink('uploads/' . $antiga);
+                $foto_ok = true;
+            } else {
+                $_SESSION['msg_erro'] = "Não foi possível salvar a imagem. Tente novamente.";
+            }
+        }
+    }
 
     $stmt_check =$conn->prepare("SELECT Email, Senha FROM Usuarios WHERE id_user = ?");
     $stmt_check->bind_param("i", $id_usuario);$stmt_check->execute();
@@ -55,10 +79,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
                 $stmt_upd->bind_param("si", $novo_email,$id_usuario);
                 $stmt_upd->execute();$_SESSION['msg_sucesso'] = "E-mail atualizado com sucesso!";
             } else {
-                $_SESSION['msg_warning'] = "Nenhuma alteração foi feita.";
+                if (!$foto_ok) $_SESSION['msg_warning'] = "Nenhuma alteração foi feita.";
             }
         }
     } catch (Exception $e) {$_SESSION['msg_erro'] = "Erro: O E-mail digitado já está em uso.";
+    }
+    if ($foto_ok) {
+        $_SESSION['msg_sucesso'] = isset($_SESSION['msg_sucesso']) ? $_SESSION['msg_sucesso'] . ' Foto de perfil atualizada!' : 'Foto de perfil atualizada com sucesso!';
     }
     session_write_close();
     header("Location: FECHECKCOMUM.php?aba=tab-conta");
@@ -304,10 +331,10 @@ if (isset($_GET['aba'])) {
             <p style="margin: 15px 0;">Escolha o novo prazo de devolução desejado:</p>
             
             <div class="days-options" id="renovacaoOptions" style="margin-bottom: 15px;">
-                <button class="day-btn selected" onclick="selectOption('renovacao', this, '7')">7 Dias</button>
-                <button class="day-btn" onclick="selectOption('renovacao', this, '15')">15 Dias</button>
-                <button class="day-btn" onclick="selectOption('renovacao', this, '30')">30 Dias</button>
-                <button class="day-btn" onclick="selectOption('renovacao', this, 'dinamico')">Dinâmico</button>
+                <button class="day-btn selected" data-prazo="7" onclick="selectOption('renovacao', this, '7')">7 Dias</button>
+                <button class="day-btn" data-prazo="15" onclick="selectOption('renovacao', this, '15')">15 Dias</button>
+                <button class="day-btn" data-prazo="30" onclick="selectOption('renovacao', this, '30')">30 Dias</button>
+                <button class="day-btn" data-prazo="dinamico" onclick="selectOption('renovacao', this, 'dinamico')">Dinâmico</button>
             </div>
             
             <div id="container-dinamico-renovacao" style="display: none; margin-top: 15px; text-align: left;">
@@ -344,10 +371,11 @@ if (isset($_GET['aba'])) {
 
     <script>
         // Sistema de Carrinho Dinâmico
-        let cart = JSON.parse(localStorage.getItem('cartComum')) || [];
+        const CART_KEY = 'cartComum_<?php echo (int)$_SESSION['usuario_id']; ?>';
+        let cart = JSON.parse(localStorage.getItem(CART_KEY)) || [];
 
         function saveCart() {
-            localStorage.setItem('cartComum', JSON.stringify(cart));
+            localStorage.setItem(CART_KEY, JSON.stringify(cart));
         }
 
         function addToCart(item) {
@@ -417,7 +445,12 @@ if (isset($_GET['aba'])) {
             if (!cartList) return;
 
             if (cart.length === 0) {
-                cartList.innerHTML = '<p style="text-align:center; padding: 40px; color: #666;">Seu carrinho está vazio.</p>';
+                cartList.innerHTML = `
+                    <div class="cart-empty">
+                        <i class="bi bi-cart-x"></i>
+                        <p>Seu carrinho está vazio</p>
+                        <span>Adicione itens pelo catálogo para fazer um pedido.</span>
+                    </div>`;
                 return;
             }
 
@@ -427,13 +460,16 @@ if (isset($_GET['aba'])) {
                     <div class="cart-item-info">
                         <strong class="cart-item-name">${item.name}</strong>
                         <span class="cart-item-code">Cód: #${item.code}</span>
+                        ${typeof item.stock === 'number' ? `<span class="cart-item-stock"><i class="bi bi-box-seam"></i> ${item.stock} un. em estoque</span>` : ''}
                     </div>
-                    <div class="quantity-controls">
-                        <button class="qty-btn minus" onclick="event.stopPropagation(); updateCartQty('${item.id}', -1)">-</button>
-                        <input type="text" value="${item.qty}" class="qty-input" readonly>
-                        <button class="qty-btn plus" onclick="event.stopPropagation(); updateCartQty('${item.id}', 1)">+</button>
+                    <div class="cart-item-actions">
+                        <div class="quantity-controls">
+                            <button class="qty-btn minus" onclick="event.stopPropagation(); updateCartQty('${item.id}', -1)"><i class="bi bi-dash"></i></button>
+                            <input type="text" value="${item.qty}" class="qty-input" readonly>
+                            <button class="qty-btn plus" onclick="event.stopPropagation(); updateCartQty('${item.id}', 1)"><i class="bi bi-plus"></i></button>
+                        </div>
+                        <button class="remove-btn" title="Remover item" onclick="event.stopPropagation(); removeFromCart('${item.id}')"><i class="bi bi-trash"></i></button>
                     </div>
-                    <button class="remove-btn" title="Remover item" onclick="event.stopPropagation(); removeFromCart('${item.id}')"><i class="bi bi-trash"></i></button>
                 </div>
             `).join('');
         }
@@ -742,7 +778,27 @@ if (isset($_GET['aba'])) {
 }
 
 let pedidoRenovacaoId = null;
-function openRenewalModal(id) { pedidoRenovacaoId = id; document.getElementById('modalRenovacao').style.display = 'flex'; }
+function openRenewalModal(id, btn) {
+    pedidoRenovacaoId = id;
+    let rest = {};
+    try { rest = JSON.parse(btn && btn.dataset ? btn.dataset.restantes : '{}') || {}; } catch(e) {}
+    const botoes = document.querySelectorAll('#renovacaoOptions .day-btn');
+    botoes.forEach(b => {
+        const t = b.dataset.prazo;
+        const esgotado = t && rest[t] === 0;
+        b.classList.toggle('opcao-esgotada', !!esgotado);
+        b.style.opacity = esgotado ? '0.4' : '';
+        b.style.pointerEvents = esgotado ? 'none' : '';
+        b.style.cursor = esgotado ? 'not-allowed' : '';
+        b.title = esgotado ? 'Limite de renovações atingido para este prazo' : '';
+    });
+    const selecionado = document.querySelector('#renovacaoOptions .day-btn.selected');
+    if (selecionado && selecionado.classList.contains('opcao-esgotada')) {
+        const primeiro = [...botoes].find(b => !b.classList.contains('opcao-esgotada'));
+        if (primeiro) primeiro.click();
+    }
+    document.getElementById('modalRenovacao').style.display = 'flex';
+}
 
         
         async function confirmRenewal() {
