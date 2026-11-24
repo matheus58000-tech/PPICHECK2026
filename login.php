@@ -32,6 +32,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 'Tipo_user' => $usuario['Tipo_user']
             ];
             $_SESSION['codigo_verificacao'] = $codigo;
+            $_SESSION['tentativas_verificacao'] = 0;
             $_SESSION['acao_verificacao'] = 'primeiro_login_criacao_senha';
             
             session_write_close();
@@ -51,6 +52,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     'Tipo_user' => $usuario['Tipo_user']
                 ];
                 $_SESSION['codigo_verificacao'] = $codigo;
+                $_SESSION['tentativas_verificacao'] = 0;
                 $_SESSION['acao_verificacao'] = 'primeiro_login';
            
                 session_write_close();
