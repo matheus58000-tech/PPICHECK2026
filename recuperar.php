@@ -16,6 +16,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
         $_SESSION['email_recuperacao'] = $email;
         $_SESSION['codigo_verificacao'] = $codigo;
+        $_SESSION['tentativas_verificacao'] = 0;
         $_SESSION['acao_verificacao'] = 'recuperacao';
 
         session_write_close();
