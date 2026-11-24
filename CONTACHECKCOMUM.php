@@ -1,5 +1,5 @@
 <?php
-$stmt = $conn->prepare("SELECT Nome, CPF, Matricula, Email, status FROM Usuarios WHERE id_user = ?");
+$stmt = $conn->prepare("SELECT Nome, CPF, Matricula, Email, status, Foto FROM Usuarios WHERE id_user = ?");
 $stmt->bind_param("i", $id_usuario);
 $stmt->execute();
 $resultado = $stmt->get_result();
@@ -10,6 +10,8 @@ $cpf_exibicao = htmlspecialchars($dados_usuario['CPF'] ?? '');
 $matricula_exibicao = htmlspecialchars($dados_usuario['Matricula'] ?? '');
 $email_exibicao = htmlspecialchars($dados_usuario['Email'] ?? '');
 $status_exibicao = $dados_usuario['status'] ?? 'ativo';
+$foto_exibicao = $dados_usuario['Foto'] ?? '';
+$foto_exibicao_url = (!empty($foto_exibicao) && file_exists('uploads/' . $foto_exibicao)) ? 'uploads/' . $foto_exibicao : '';
 
 $toast_script = "";
 if (isset($_SESSION['msg_erro'])) {
@@ -23,8 +25,8 @@ if (isset($_SESSION['msg_erro'])) {
 } elseif (isset($_SESSION['msg_warning'])) {
     $msg = addslashes($_SESSION['msg_warning']);
     $toast_script = "showToast('{$msg}', 'warning');";
-    unset($_SESSION['msg_warning']);
 }
+unset($_SESSION['msg_erro'], $_SESSION['msg_sucesso'], $_SESSION['msg_warning']);
 ?>
 
 <style>
@@ -77,8 +79,23 @@ if (isset($_SESSION['msg_erro'])) {
 
 <div id="tab-conta" class="spa-tab" style="display: none;">
     <div class="form-card" style="max-width: 900px; margin: 0 auto; box-shadow: none; border: 1px solid #e0e0e0;">
-        <form id="account-form" method="POST" action="FECHECKCOMUM.php">
+        <form id="account-form" method="POST" action="FECHECKCOMUM.php" enctype="multipart/form-data">
             <input type="hidden" name="atualizar_conta" value="1">
+
+            <div style="display: flex; align-items: center; gap: 20px; background: #f8f9ff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                <div id="preview-foto" style="width: 80px; height: 80px; border-radius: 50%; overflow: hidden; background: #eef0f8; border: 3px solid #0f006d; box-shadow: 0 0 0 4px rgba(15,0,109,0.12); display: flex; align-items: center; justify-content: center; color: #0f006d; font-size: 2.2rem; flex-shrink: 0;">
+                    <?php if ($foto_exibicao_url): ?>
+                        <img src="<?php echo htmlspecialchars($foto_exibicao_url); ?>" style="width:100%; height:100%; object-fit:cover;">
+                    <?php else: ?>
+                        <i class="bi bi-person-circle"></i>
+                    <?php endif; ?>
+                </div>
+                <div style="flex: 1;">
+                    <label style="font-weight: bold; display: block; margin-bottom: 8px;">Foto de Perfil</label>
+                    <input type="file" name="foto" id="input-foto" accept="image/*" style="font-size: 0.9rem;">
+                    <p style="font-size: 0.78rem; color: #888; margin-top: 6px;">JPG, PNG, GIF ou WebP. Tamanho máximo: 10MB.</p>
+                </div>
+            </div>
             
             <?php if ($status_exibicao === 'bloqueado'): ?>
                 <div style="background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 8px; margin-bottom: 25px; font-weight: bold; text-align: center; border: 1px solid #f5c6cb;">
@@ -142,6 +159,21 @@ if (isset($_SESSION['msg_erro'])) {
         </form>
     </div> 
 </div>
+
+<script>
+    document.getElementById('input-foto').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 10 * 1024 * 1024) {
+            if (typeof showToast === 'function') showToast('A imagem é muito pesada (' + (file.size / 1048576).toFixed(1) + 'MB). O limite é 10MB.', 'error');
+            else alert('A imagem é muito pesada. O limite é 10MB.');
+            e.target.value = '';
+            return;
+        }
+        const preview = document.getElementById('preview-foto');
+        preview.innerHTML = `<img src="${URL.createObjectURL(file)}" style="width:100%; height:100%; object-fit:cover;">`;
+    });
+</script>
 
 <?php if (!empty($toast_script)): ?>
 <script>
