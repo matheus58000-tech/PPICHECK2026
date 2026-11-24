@@ -20,6 +20,7 @@ if ($categorias_disponiveis) {
     }
 }
 
+
 global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
 ?>
 <!DOCTYPE html>
@@ -286,10 +287,10 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             <p style="margin-bottom:15px; color:#555;">Escolha o novo prazo de devolução:</p>
             
             <div class="days-options" id="renovaOptions" style="margin-bottom: 15px;">
-                <button class="day-btn selected" onclick="selectCheckoutOption('renova', this, '7')">7 Dias</button>
-                <button class="day-btn" onclick="selectCheckoutOption('renova', this, '15')">15 Dias</button>
-                <button class="day-btn" onclick="selectCheckoutOption('renova', this, '30')">30 Dias</button>
-                <button class="day-btn" onclick="selectCheckoutOption('renova', this, 'dinamico')">Dinâmico</button>
+                <button class="day-btn selected" data-prazo="7" onclick="selectCheckoutOption('renova', this, '7')">7 Dias</button>
+                <button class="day-btn" data-prazo="15" onclick="selectCheckoutOption('renova', this, '15')">15 Dias</button>
+                <button class="day-btn" data-prazo="30" onclick="selectCheckoutOption('renova', this, '30')">30 Dias</button>
+                <button class="day-btn" data-prazo="dinamico" onclick="selectCheckoutOption('renova', this, 'dinamico')">Dinâmico</button>
             </div>
             
             <div id="container-dinamico-renova" style="display: none; margin-top: 15px; text-align: left;">
@@ -326,10 +327,11 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
 
     <script>
   
-        let cart = JSON.parse(localStorage.getItem('cartAdmin')) || [];
+        const CART_KEY = 'cartAdmin_<?php echo (int)$_SESSION['usuario_id']; ?>';
+        let cart = JSON.parse(localStorage.getItem(CART_KEY)) || [];
 
         function saveCart() {
-            localStorage.setItem('cartAdmin', JSON.stringify(cart));
+            localStorage.setItem(CART_KEY, JSON.stringify(cart));
         }
 
         function addToCart(item) {
@@ -399,7 +401,12 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
             if (!cartList) return;
 
             if (cart.length === 0) {
-                cartList.innerHTML = '<p style="text-align:center; padding: 40px; color: #666;">Seu carrinho está vazio.</p>';
+                cartList.innerHTML = `
+                    <div class="cart-empty">
+                        <i class="bi bi-cart-x"></i>
+                        <p>Seu carrinho está vazio</p>
+                        <span>Adicione itens pelo catálogo para fazer um pedido.</span>
+                    </div>`;
                 return;
             }
 
@@ -409,13 +416,16 @@ global $aba_ativa, $sub_aba_ativa, $conn, $id_usuario;
                     <div class="cart-item-info">
                         <strong class="cart-item-name">${item.name}</strong>
                         <span class="cart-item-code">Cód: #${item.code}</span>
+                        ${typeof item.stock === 'number' ? `<span class="cart-item-stock"><i class="bi bi-box-seam"></i> ${item.stock} un. em estoque</span>` : ''}
                     </div>
-                    <div class="quantity-controls">
-                        <button class="qty-btn minus" onclick="event.stopPropagation(); updateCartQty('${item.id}', -1)">-</button>
-                        <input type="text" value="${item.qty}" class="qty-input" readonly>
-                        <button class="qty-btn plus" onclick="event.stopPropagation(); updateCartQty('${item.id}', 1)">+</button>
+                    <div class="cart-item-actions">
+                        <div class="quantity-controls">
+                            <button class="qty-btn minus" onclick="event.stopPropagation(); updateCartQty('${item.id}', -1)"><i class="bi bi-dash"></i></button>
+                            <input type="text" value="${item.qty}" class="qty-input" readonly>
+                            <button class="qty-btn plus" onclick="event.stopPropagation(); updateCartQty('${item.id}', 1)"><i class="bi bi-plus"></i></button>
+                        </div>
+                        <button class="remove-btn" title="Remover item" onclick="event.stopPropagation(); removeFromCart('${item.id}')"><i class="bi bi-trash"></i></button>
                     </div>
-                    <button class="remove-btn" title="Remover item" onclick="event.stopPropagation(); removeFromCart('${item.id}')"><i class="bi bi-trash"></i></button>
                 </div>
             `).join('');
         }
@@ -696,7 +706,27 @@ function filterPedidos(status) {
 }
 
 let pedidoRenovacaoId = null;
-function openRenewalModal(id) { pedidoRenovacaoId = id; document.getElementById('modalRenovacao').style.display = 'flex'; }
+function openRenewalModal(id, btn) {
+    pedidoRenovacaoId = id;
+    let rest = {};
+    try { rest = JSON.parse(btn && btn.dataset ? btn.dataset.restantes : '{}') || {}; } catch(e) {}
+    const botoes = document.querySelectorAll('#renovaOptions .day-btn');
+    botoes.forEach(b => {
+        const t = b.dataset.prazo;
+        const esgotado = t && rest[t] === 0;
+        b.classList.toggle('opcao-esgotada', !!esgotado);
+        b.style.opacity = esgotado ? '0.4' : '';
+        b.style.pointerEvents = esgotado ? 'none' : '';
+        b.style.cursor = esgotado ? 'not-allowed' : '';
+        b.title = esgotado ? 'Limite de renovações atingido para este prazo' : '';
+    });
+    const selecionado = document.querySelector('#renovaOptions .day-btn.selected');
+    if (selecionado && selecionado.classList.contains('opcao-esgotada')) {
+        const primeiro = [...botoes].find(b => !b.classList.contains('opcao-esgotada'));
+        if (primeiro) primeiro.click();
+    }
+    document.getElementById('modalRenovacao').style.display = 'flex';
+}
 function closeRenewalModal() { document.getElementById('modalRenovacao').style.display = 'none'; }
 
         
