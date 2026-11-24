@@ -148,21 +148,38 @@ try {
             if ((int)$ped['id_user'] !== $id_usuario) throw new RegraNegocio('Este pedido não é seu.');
             if ($ped['Status_pedido'] !== 'Retirado') throw new RegraNegocio('Só é possível renovar pedidos retirados.');
 
-            $renovacoesAtuais = (int)($ped['renovacoes'] ?? 0);
-            if ($renovacoesAtuais >= LIMITE_RENOVACOES) {
-                throw new RegraNegocio('Este pedido já atingiu o limite máximo de ' . LIMITE_RENOVACOES . ' renovação(ões). Realize a devolução no laboratório.');
+            $prazo = calcularPrazo($in);
+
+            // Limites de renovação por tipo de prazo
+            $limitesRenov = ['7' => 4, '15' => 2, '30' => 1, 'dinamico' => 1];
+            $colunasRenov = ['7' => 'renov_7', '15' => 'renov_15', '30' => 'renov_30', 'dinamico' => 'renov_dinamico'];
+            $rotulosRenov = ['7' => '7 dias', '15' => '15 dias', '30' => '30 dias', 'dinamico' => 'prazo dinâmico'];
+
+            $tipoPrazo = $prazo['dinamico'] ? 'dinamico' : (string)$prazo['dias'];
+            $colRenov  = $colunasRenov[$tipoPrazo];
+            $limite    = $limitesRenov[$tipoPrazo];
+
+            if ($prazo['dinamico']) {
+                $limiteData = date('Y-m-d', strtotime('+2 months'));
+                if ($prazo['data'] > $limiteData) {
+                    throw new RegraNegocio('O prazo dinâmico pode ser estendido no máximo até ' . date('d/m/Y', strtotime($limiteData)) . ' (2 meses a partir de hoje).');
+                }
             }
 
-            $prazo = calcularPrazo($in);
+            $usados = (int)($ped[$colRenov] ?? 0);
+            if ($usados >= $limite) {
+                throw new RegraNegocio("A renovação de {$rotulosRenov[$tipoPrazo]} já atingiu o limite de {$limite} vez(es) para este pedido. Realize a devolução no laboratório.");
+            }
+
             $stmt = $conn->prepare("UPDATE Pedido SET Data_dev = ?, Prazo_dinamico = IF(?=1, 1, Prazo_dinamico),
-                                    renovacoes = renovacoes + 1,
+                                    renovacoes = renovacoes + 1, $colRenov = $colRenov + 1,
                                     Justificativa = CONCAT_WS(' | ', Justificativa, ?) WHERE id_pedido = ?");
             $just = $prazo['just'] ? ('Renovação: ' . $prazo['just']) : null;
             $stmt->bind_param("sisi", $prazo['data'], $prazo['dinamico'], $just, $ped['id_pedido']);
             $stmt->execute();
 
-            $restantes = LIMITE_RENOVACOES - ($renovacoesAtuais + 1);
-            resp(true, 'Empréstimo renovado até ' . date('d/m/Y', strtotime($prazo['data'])) . '. Renovações restantes: ' . $restantes . '.');
+            $restantes = $limite - ($usados + 1);
+            resp(true, 'Empréstimo renovado até ' . date('d/m/Y', strtotime($prazo['data'])) . ' (' . $rotulosRenov[$tipoPrazo] . '). Renovações restantes deste tipo: ' . $restantes . '.');
             break;
 
         case 'aprovar':
