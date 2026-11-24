@@ -2,6 +2,7 @@
 if (ob_get_level() === 0) {
     ob_start();
 }
+ini_set('implicit_flush', '0');
 
 if (session_status() === PHP_SESSION_NONE) {
     $duracao = 28800; 
