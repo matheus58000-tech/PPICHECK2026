@@ -3,9 +3,9 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 
-require 'Exception.php';
-require 'PHPMailer.php';
-require 'SMTP.php';
+require_once __DIR__ . '/PHPMailer/Exception.php';
+require_once __DIR__ . '/PHPMailer/PHPMailer.php';
+require_once __DIR__ . '/PHPMailer/SMTP.php';
 
 function enviarCodigoEmail($destinatario, $codigo) {
     $mail = new PHPMailer(true);
