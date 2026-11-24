@@ -9,6 +9,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
     $nova_senha = $_POST['nova_senha'];
     $confirma_senha = $_POST['confirma_senha'];
 
+    $foto_ok = false;
+    if (isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK && $_FILES['foto']['size'] > 0) {
+        $ext = strtolower(pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION));
+        $tamanho_mb = round($_FILES['foto']['size'] / 1024 / 1024, 1);
+        if ($_FILES['foto']['size'] > 10 * 1024 * 1024) {
+            $mensagem_conta = "showToast('A imagem é muito pesada ({$tamanho_mb}MB). O limite é 10MB.', 'error');";
+        } elseif (!in_array($ext, ['jpg', 'jpeg', 'jfif', 'png', 'gif', 'webp', 'bmp', 'avif'], true)) {
+            $mensagem_conta = "showToast('Formato inválido" . (!empty($ext) ? " (.{$ext})" : "") . ". Use JPG, PNG, GIF ou WebP.', 'error');";
+        } else {
+            $antiga = $conn->query("SELECT Foto FROM Usuarios WHERE id_user = " . (int)$id_usuario)->fetch_assoc()['Foto'] ?? '';
+            $foto_nome = 'user_' . $id_usuario . '_' . uniqid() . '.' . $ext;
+            if (move_uploaded_file($_FILES['foto']['tmp_name'], 'uploads/' . $foto_nome)) {
+                $stmt_f = $conn->prepare("UPDATE Usuarios SET Foto = ? WHERE id_user = ?");
+                $stmt_f->bind_param("si", $foto_nome, $id_usuario);
+                $stmt_f->execute();
+                if (!empty($antiga) && file_exists('uploads/' . $antiga)) @unlink('uploads/' . $antiga);
+                $foto_ok = true;
+            } else {
+                $mensagem_conta = "showToast('Não foi possível salvar a imagem. Tente novamente.', 'error');";
+            }
+        }
+    }
+
     $stmt_check = $conn->prepare("SELECT Email, Senha FROM Usuarios WHERE id_user = ?");
     $stmt_check->bind_param("i", $id_usuario);
     $stmt_check->execute();
@@ -43,9 +66,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['atualizar_conta'])) {
     } catch (mysqli_sql_exception $e) {
         $mensagem_conta = "showToast('Erro: O E-mail digitado já está em uso.', 'error');";
     }
+
+    if ($foto_ok) {
+        if (strpos($mensagem_conta, 'Nenhuma alteração') !== false) {
+            $mensagem_conta = "showToast('Foto de perfil atualizada com sucesso!', 'success');";
+        } else {
+            $mensagem_conta .= "showToast('Foto de perfil atualizada com sucesso!', 'success');";
+        }
+    }
 }
 
-$stmt = $conn->prepare("SELECT Nome, CPF, SIAPE, Email FROM Usuarios WHERE id_user = ?");
+$stmt = $conn->prepare("SELECT Nome, CPF, SIAPE, Email, Foto FROM Usuarios WHERE id_user = ?");
 $stmt->bind_param("i", $id_usuario);
 $stmt->execute();
 $dados_usuario = $stmt->get_result()->fetch_assoc();
@@ -54,6 +85,8 @@ $nome_exibicao = htmlspecialchars($dados_usuario['Nome'] ?? '');
 $cpf_exibicao = htmlspecialchars($dados_usuario['CPF'] ?? '');
 $siape_exibicao = htmlspecialchars($dados_usuario['SIAPE'] ?? '');
 $email_exibicao = htmlspecialchars($dados_usuario['Email'] ?? '');
+$foto_exibicao = $dados_usuario['Foto'] ?? '';
+$foto_exibicao_url = (!empty($foto_exibicao) && file_exists('uploads/' . $foto_exibicao)) ? 'uploads/' . $foto_exibicao : '';
 ?>
 <style>
     .account-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
@@ -77,9 +110,24 @@ $email_exibicao = htmlspecialchars($dados_usuario['Email'] ?? '');
     </div>
     
     <div class="form-card" style="max-width: 900px; margin: 0 auto; box-shadow: none; border: 1px solid #e0e0e0;">
-        <form method="POST" action="FECHECKADM.php">
+        <form method="POST" action="FECHECKADM.php" enctype="multipart/form-data">
             <input type="hidden" name="atualizar_conta" value="1">
-            
+
+            <div style="display: flex; align-items: center; gap: 20px; background: #f8f9ff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                <div id="preview-foto" style="width: 80px; height: 80px; border-radius: 50%; overflow: hidden; background: #eef0f8; border: 3px solid #0f006d; box-shadow: 0 0 0 4px rgba(15,0,109,0.12); display: flex; align-items: center; justify-content: center; color: #0f006d; font-size: 2.2rem; flex-shrink: 0;">
+                    <?php if ($foto_exibicao_url): ?>
+                        <img src="<?php echo htmlspecialchars($foto_exibicao_url); ?>" style="width:100%; height:100%; object-fit:cover;">
+                    <?php else: ?>
+                        <i class="bi bi-person-circle"></i>
+                    <?php endif; ?>
+                </div>
+                <div style="flex: 1;">
+                    <label style="font-weight: bold; display: block; margin-bottom: 8px;">Foto de Perfil</label>
+                    <input type="file" name="foto" id="input-foto" accept="image/*" style="font-size: 0.9rem;">
+                    <p style="font-size: 0.78rem; color: #888; margin-top: 6px;">JPG, PNG, GIF ou WebP. Tamanho máximo: 10MB.</p>
+                </div>
+            </div>
+
             <div class="account-grid">
                 <div class="account-column">
                     <div class="readonly-notice">
@@ -133,6 +181,21 @@ $email_exibicao = htmlspecialchars($dados_usuario['Email'] ?? '');
         </form>
     </div> 
 </main>
+
+<script>
+    document.getElementById('input-foto').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 10 * 1024 * 1024) {
+            if (typeof showToast === 'function') showToast('A imagem é muito pesada (' + (file.size / 1048576).toFixed(1) + 'MB). O limite é 10MB.', 'error');
+            else alert('A imagem é muito pesada. O limite é 10MB.');
+            e.target.value = '';
+            return;
+        }
+        const preview = document.getElementById('preview-foto');
+        preview.innerHTML = `<img src="${URL.createObjectURL(file)}" style="width:100%; height:100%; object-fit:cover;">`;
+    });
+</script>
 
 <?php if (!empty($mensagem_conta)): ?>
 <script>
