@@ -30,7 +30,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['usuario_nome'] = $dados['Nome'];
                 $_SESSION['usuario_tipo'] = $dados['Tipo_user'];
                 
-                unset($_SESSION['codigo_verificacao'], $_SESSION['acao_verificacao'], $_SESSION['login_temp']);
+                unset($_SESSION['codigo_verificacao'], $_SESSION['acao_verificacao'], $_SESSION['login_temp'], $_SESSION['tentativas_verificacao']);
                 $pagina_destino = ($dados['Tipo_user'] === 'padrao') ? "FECHECKCOMUM.php" : "FECHECKADM.php";
                 header("Location: " . $pagina_destino);
                 exit();
@@ -39,7 +39,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 exit();
             }
         } else {
-            $erro = "Código incorreto. Verifique e tente novamente.";
+            $_SESSION['tentativas_verificacao'] = ($_SESSION['tentativas_verificacao'] ?? 0) + 1;
+            $restantes = 5 - $_SESSION['tentativas_verificacao'];
+            if ($restantes <= 0) {
+                unset($_SESSION['codigo_verificacao'], $_SESSION['acao_verificacao'], $_SESSION['login_temp'], $_SESSION['etapa_criacao_senha'], $_SESSION['tentativas_verificacao']);
+                $_SESSION['erro_msg'] = "Número máximo de tentativas excedido. Faça login novamente.";
+                header("Location: index.php");
+                exit();
+            }
+            $erro = "Código incorreto. Tentativas restantes: $restantes";
         }
     }
     
@@ -63,7 +71,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $_SESSION['usuario_nome'] = $dados['Nome'];
             $_SESSION['usuario_tipo'] = $dados['Tipo_user'];
 
-            unset($_SESSION['codigo_verificacao'], $_SESSION['acao_verificacao'], $_SESSION['login_temp'], $_SESSION['etapa_criacao_senha']);
+            unset($_SESSION['codigo_verificacao'], $_SESSION['acao_verificacao'], $_SESSION['login_temp'], $_SESSION['etapa_criacao_senha'], $_SESSION['tentativas_verificacao']);
             
             $pagina_destino = ($dados['Tipo_user'] === 'padrao') ? "FECHECKCOMUM.php" : "FECHECKADM.php";
             header("Location: " . $pagina_destino);
@@ -102,7 +110,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <?php if ($etapa === 1): ?>
                         <h2 class="form-title" style="margin-bottom: 5px;">VERIFICAÇÃO</h2>
                         <p style="color: #555; text-align: center; margin-bottom: 20px; font-size: 0.95rem;">Enviamos um código de 4 dígitos para o seu e-mail. Digite-o abaixo:</p>
-                        
+
                         <?php if($erro): ?>
                             <div class="error-text" style="color: #dc3545; text-align: center; font-weight: bold; margin-bottom: 15px; background: #fff8f8; padding: 10px; border-radius: 6px; border: 1px solid #ffcaca;"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erro; ?></div>
                         <?php endif; ?>
