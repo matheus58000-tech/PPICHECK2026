@@ -1,12 +1,29 @@
 <?php
 session_start();
 
-$erro_campo = isset($_SESSION['erro_campo']) ? $_SESSION['erro_campo'] : '';
-$erro_msg = isset($_SESSION['erro_msg']) ? $_SESSION['erro_msg'] : '';
-$erros_cadastro = isset($_SESSION['erros_cadastro']) ? $_SESSION['erros_cadastro'] : [];
-$msg_sucesso = isset($_SESSION['msg_sucesso']) ? $_SESSION['msg_sucesso'] : '';
+$erro_campo         = $_SESSION['erro_campo'] ?? '';
+$erro_msg           = $_SESSION['erro_msg'] ?? '';
+$erro_geral         = $_SESSION['erro_geral'] ?? '';
+$erros_cadastro     = $_SESSION['erros_cadastro'] ?? [];
+$dados_cadastro     = $_SESSION['dados_cadastro'] ?? [];
+$login_cpf_anterior = $_SESSION['login_cpf_anterior'] ?? '';
+$msg_sucesso        = $_SESSION['msg_sucesso'] ?? '';
 
-unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], $_SESSION['erros_cadastro']);
+unset(
+    $_SESSION['erro_campo'],
+    $_SESSION['erro_msg'],
+    $_SESSION['erro_geral'],
+    $_SESSION['msg_sucesso'],
+    $_SESSION['erros_cadastro'],
+    $_SESSION['dados_cadastro'],
+    $_SESSION['login_cpf_anterior']
+);
+
+$data_nasc_br = '';
+if (!empty($dados_cadastro['data_nascimento']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dados_cadastro['data_nascimento'])) {
+    $partes_dt = explode('-', $dados_cadastro['data_nascimento']);
+    $data_nasc_br = $partes_dt[2] . '/' . $partes_dt[1] . '/' . $partes_dt[0];
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -17,37 +34,19 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
     <link rel="stylesheet" href="FELOGINCHECKCSS.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&display=swap" rel="stylesheet">
-    
+
     <style>
-        .strength-meter-container {
-            margin-top: -10px;
-            margin-bottom: 15px;
-            width: 100%;
-        }
-        .strength-meter {
-            height: 6px;
-            background-color: #eee;
-            border-radius: 3px;
-            overflow: hidden;
-            width: 100%;
-        }
-        .strength-meter-fill {
-            height: 100%;
-            width: 0%;
-            transition: width 0.3s ease, background-color 0.3s ease;
-        }
-        .strength-text {
-            font-size: 0.75rem;
-            color: #777;
-            margin-top: 5px;
-            display: block;
-        }
+        .strength-meter-container { margin-top: -10px; margin-bottom: 15px; width: 100%; }
+        .strength-meter { height: 6px; background-color: #eee; border-radius: 3px; overflow: hidden; width: 100%; }
+        .strength-meter-fill { height: 100%; width: 0%; transition: width 0.3s ease, background-color 0.3s ease; }
+        .strength-text { font-size: 0.75rem; color: #777; margin-top: 5px; display: block; }
+        .first-access-hint { font-size: 0.75rem; color: #666; margin-top: -8px; margin-bottom: 14px; display: block; }
     </style>
 </head>
 <body>
     <div class="login-container">
         <div class="login-card">
-            
+
             <div class="left-panel">
                 <div class="logo-container">
                     <img src="LOGOCHECKADAP.jpg" alt="Logo Check" class="logo-img">
@@ -57,32 +56,42 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
             <div class="divider"></div>
 
             <div class="right-panel">
-                
+
                 <div id="view-login" class="view-section active">
                     <h2 class="form-title">LOGIN</h2>
 
                     <?php if(!empty($msg_sucesso)): ?>
-                        <div class="success-box"><i class="bi bi-check-circle"></i> <?php echo $msg_sucesso; ?></div>
+                        <div class="success-box"><i class="bi bi-check-circle"></i> <?php echo htmlspecialchars($msg_sucesso); ?></div>
+                    <?php endif; ?>
+
+                    <?php if(!empty($erro_geral)): ?>
+                        <div class="error-text" style="color: #dc3545; text-align: center; font-weight: bold; margin-bottom: 15px; background: #fff8f8; padding: 10px; border-radius: 6px; border: 1px solid #ffcaca;">
+                            <i class="bi bi-exclamation-circle-fill"></i> <?php echo htmlspecialchars($erro_geral); ?>
+                        </div>
                     <?php endif; ?>
 
                     <form id="login-form" action="login.php" method="POST">
                         <div class="input-group">
-                            <input type="text" id="login-cpf" name="usuario" placeholder="CPF" maxlength="14" required class="<?php echo ($erro_campo === 'usuario') ? 'input-error' : ''; ?>">
+                            <input type="text" id="login-cpf" name="usuario" placeholder="CPF" maxlength="14" required
+                                   value="<?php echo htmlspecialchars($login_cpf_anterior); ?>"
+                                   class="<?php echo ($erro_campo === 'usuario') ? 'input-error' : ''; ?>">
                             <?php if($erro_campo === 'usuario'): ?>
-                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erro_msg; ?></div>
+                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo htmlspecialchars($erro_msg); ?></div>
                             <?php endif; ?>
                         </div>
 
                         <div class="input-group">
-                            <input type="password" name="senha" placeholder="Senha" required class="<?php echo ($erro_campo === 'senha') ? 'input-error' : ''; ?>">
+                            <input type="password" name="senha" placeholder="Senha (em branco no 1º acesso)"
+                                   class="<?php echo ($erro_campo === 'senha') ? 'input-error' : ''; ?>">
                             <i class="bi bi-eye toggle-password"></i>
                             <?php if($erro_campo === 'senha'): ?>
-                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erro_msg; ?></div>
+                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo htmlspecialchars($erro_msg); ?></div>
                             <?php endif; ?>
                         </div>
+                        <span class="first-access-hint"><i class="bi bi-info-circle"></i> Conta criada no laboratório? Digite apenas o CPF para criar sua senha.</span>
 
                         <button type="submit" class="btn-primary">ACESSAR O SISTEMA</button>
-                        
+
                         <a href="catalogo_visitante.php" class="btn-primary" style="display: flex; justify-content: center; align-items: center; margin-top: 15px; text-decoration: none; box-sizing: border-box;">ACESSAR CATÁLOGO</a>
                     </form>
 
@@ -91,63 +100,74 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
                         <a href="#" id="link-go-recover-login">Esqueceu sua senha?</a>
                     </div>
                 </div>
-                
+
                 <div id="view-register" class="view-section hidden">
                     <h2 class="form-title" style="margin-bottom: 0;">CADASTRO</h2>
                     <h3 class="form-subtitle">USUÁRIO PADRÃO</h3>
 
                     <?php if(isset($erros_cadastro['geral'])): ?>
-                        <div class="error-text-cadastro"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['geral']; ?></div>
+                        <div class="error-text-cadastro"><i class="bi bi-exclamation-circle-fill"></i> <?php echo htmlspecialchars($erros_cadastro['geral']); ?></div>
                     <?php endif; ?>
 
                     <form action="cadastrar.php" method="POST" novalidate>
-                        
+
                         <div class="input-group">
-                            <input type="text" name="nome" placeholder="Nome Completo" required class="<?php echo isset($erros_cadastro['cad_nome']) ? 'input-error' : ''; ?>">
+                            <input type="text" name="nome" placeholder="Nome Completo" required
+                                   value="<?php echo htmlspecialchars($dados_cadastro['nome'] ?? ''); ?>"
+                                   class="<?php echo isset($erros_cadastro['cad_nome']) ? 'input-error' : ''; ?>">
                             <?php if(isset($erros_cadastro['cad_nome'])): ?>
-                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['cad_nome']; ?></div>
+                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo htmlspecialchars($erros_cadastro['cad_nome']); ?></div>
                             <?php endif; ?>
                         </div>
-                        
+
                         <div class="input-row">
                             <div class="input-group">
-                                <input type="text" id="cpf-input" name="cpf" placeholder="CPF" maxlength="14" required class="<?php echo isset($erros_cadastro['cad_cpf']) ? 'input-error' : ''; ?>">
+                                <input type="text" id="cpf-input" name="cpf" placeholder="CPF" maxlength="14" required
+                                       value="<?php echo htmlspecialchars($dados_cadastro['cpf'] ?? ''); ?>"
+                                       class="<?php echo isset($erros_cadastro['cad_cpf']) ? 'input-error' : ''; ?>">
                                 <div id="cpf-realtime-feedback" style="font-size: 0.8rem; margin-top: 4px; font-weight: bold;"></div>
                                 <?php if(isset($erros_cadastro['cad_cpf'])): ?>
-                                    <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['cad_cpf']; ?></div>
+                                    <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo htmlspecialchars($erros_cadastro['cad_cpf']); ?></div>
                                 <?php endif; ?>
                             </div>
                             <div class="input-group">
-                                <input type="text" name="matricula" placeholder="Matrícula" required class="<?php echo isset($erros_cadastro['cad_matricula']) ? 'input-error' : ''; ?>">
+                                <input type="text" name="matricula" placeholder="Matrícula" maxlength="10" required
+                                       value="<?php echo htmlspecialchars($dados_cadastro['matricula'] ?? ''); ?>"
+                                       class="<?php echo isset($erros_cadastro['cad_matricula']) ? 'input-error' : ''; ?>">
                                 <?php if(isset($erros_cadastro['cad_matricula'])): ?>
-                                    <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['cad_matricula']; ?></div>
+                                    <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo htmlspecialchars($erros_cadastro['cad_matricula']); ?></div>
                                 <?php endif; ?>
                             </div>
                         </div>
 
                         <div class="input-group">
-                            <input type="email" name="email" placeholder="E-mail" required class="<?php echo isset($erros_cadastro['cad_email']) ? 'input-error' : ''; ?>">
+                            <input type="email" name="email" placeholder="E-mail (@aluno.iffar.edu.br)" required
+                                   value="<?php echo htmlspecialchars($dados_cadastro['email'] ?? ''); ?>"
+                                   class="<?php echo isset($erros_cadastro['cad_email']) ? 'input-error' : ''; ?>">
                             <?php if(isset($erros_cadastro['cad_email'])): ?>
-                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['cad_email']; ?></div>
+                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo htmlspecialchars($erros_cadastro['cad_email']); ?></div>
                             <?php endif; ?>
                         </div>
 
                         <div class="input-group">
-                            <input type="text" id="data_nasc_input" placeholder="Data de Nascimento (DD/MM/AAAA)" maxlength="10" required class="<?php echo isset($erros_cadastro['cad_nascimento']) ? 'input-error' : ''; ?>">
-                            <input type="hidden" name="data_nascimento" id="data_nasc_hidden">
+                            <input type="text" id="data_nasc_input" placeholder="Data de Nascimento (DD/MM/AAAA)" maxlength="10" required
+                                   value="<?php echo htmlspecialchars($data_nasc_br); ?>"
+                                   class="<?php echo isset($erros_cadastro['cad_nascimento']) ? 'input-error' : ''; ?>">
+                            <input type="hidden" name="data_nascimento" id="data_nasc_hidden"
+                                   value="<?php echo htmlspecialchars($dados_cadastro['data_nascimento'] ?? ''); ?>">
                             <?php if(isset($erros_cadastro['cad_nascimento'])): ?>
-                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['cad_nascimento']; ?></div>
+                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo htmlspecialchars($erros_cadastro['cad_nascimento']); ?></div>
                             <?php endif; ?>
                         </div>
-                        
+
                         <div class="input-group" style="margin-bottom: 25px;">
                             <input type="password" name="senha" id="reg-senha" placeholder="Senha" required class="<?php echo isset($erros_cadastro['cad_senha']) ? 'input-error' : ''; ?>">
                             <i class="bi bi-eye toggle-password"></i>
                             <?php if(isset($erros_cadastro['cad_senha'])): ?>
-                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erros_cadastro['cad_senha']; ?></div>
+                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo htmlspecialchars($erros_cadastro['cad_senha']); ?></div>
                             <?php endif; ?>
                         </div>
-                        
+
                         <div class="strength-meter-container">
                             <div class="strength-meter">
                                 <div class="strength-meter-fill" id="reg-meter-fill"></div>
@@ -171,12 +191,12 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
                 <div id="view-recover" class="view-section hidden">
                     <h2 class="form-title recover-title" style="margin-bottom: 5px;">RECUPERAÇÃO DE CONTA</h2>
                     <p style="color: #555; text-align: center; margin-bottom: 20px; font-size: 0.95rem;">Adicione seu e-mail utilizado no cadastro para receber um código de verificação.</p>
-                    
+
                     <form action="recuperar.php" method="POST">
                         <div class="input-group">
                             <input type="email" name="email_recuperacao" placeholder="Digite seu e-mail de cadastro" required class="<?php echo ($erro_campo === 'recuperacao') ? 'input-error' : ''; ?>">
                             <?php if($erro_campo === 'recuperacao'): ?>
-                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo $erro_msg; ?></div>
+                                <div class="error-text"><i class="bi bi-exclamation-circle-fill"></i> <?php echo htmlspecialchars($erro_msg); ?></div>
                             <?php endif; ?>
                         </div>
                         <button type="submit" class="btn-primary">ENVIAR CÓDIGO</button>
@@ -209,7 +229,7 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
 
         linkGoRegister.addEventListener('click', (e) => { e.preventDefault(); switchView(viewRegister); });
         linkGoRecoverLogin.addEventListener('click', (e) => { e.preventDefault(); switchView(viewRecover); });
-        
+
         linksGoLogin.forEach(link => {
             link.addEventListener('click', (e) => { e.preventDefault(); switchView(viewLogin); });
         });
@@ -226,9 +246,9 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
 
         if(cpfInput) {
             cpfInput.addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\D/g, ''); 
-                if (value.length > 11) value = value.slice(0, 11); 
-                
+                let value = e.target.value.replace(/\D/g, '');
+                if (value.length > 11) value = value.slice(0, 11);
+
                 let maskedValue = value;
                 if (maskedValue.length > 3 && maskedValue.length <= 6) {
                     maskedValue = maskedValue.replace(/(\d{3})(\d)/, '$1.$2');
@@ -265,6 +285,11 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
                     }
                 }
             });
+
+            
+            if (cpfInput.value.trim() !== '') {
+                cpfInput.dispatchEvent(new Event('input'));
+            }
         }
 
         function validarAlgoritmoCPF(strCPF) {
@@ -285,8 +310,8 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
         const loginCpf = document.getElementById('login-cpf');
         if(loginCpf) {
             loginCpf.addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\D/g, ''); 
-                if (value.length > 11) value = value.slice(0, 11); 
+                let value = e.target.value.replace(/\D/g, '');
+                if (value.length > 11) value = value.slice(0, 11);
                 value = value.replace(/(\d{3})(\d)/, '$1.$2');
                 value = value.replace(/(\d{3})(\d)/, '$1.$2');
                 value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
@@ -339,7 +364,7 @@ unset($_SESSION['erro_campo'], $_SESSION['erro_msg'], $_SESSION['msg_sucesso'], 
             regSenha.addEventListener('input', function() {
                 const val = this.value;
                 let strength = 0;
-                
+
                 if (val.length >= 8) strength++;
                 if (/[A-Z]/.test(val)) strength++;
                 if (/[0-9]/.test(val)) strength++;
