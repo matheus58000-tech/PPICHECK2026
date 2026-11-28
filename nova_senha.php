@@ -1,17 +1,18 @@
 <?php
 session_start();
-require_once 'conexao.php';
+require_once __DIR__ . '/conexao.php';
 
-if (!isset($_SESSION['email_recuperacao'])) {
+// Exige tanto o e-mail quanto a confirmação de que o código de 4 dígitos foi validado
+if (!isset($_SESSION['email_recuperacao']) || empty($_SESSION['recuperacao_verificada'])) {
     header("Location: index.php");
     exit();
 }
 
 $erro = "";
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $senha = $_POST['nova_senha'];
-    $senha_conf = $_POST['confirma_senha'];
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $senha      = $_POST['nova_senha'] ?? '';
+    $senha_conf = $_POST['confirma_senha'] ?? '';
 
     if (strlen($senha) < 8 || !preg_match('/[A-Z]/', $senha) || !preg_match('/[0-9]/', $senha) || !preg_match('/[^A-Za-z0-9]/', $senha)) {
         $erro = "A senha não atende aos requisitos mínimos de segurança.";
@@ -21,15 +22,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $email = $_SESSION['email_recuperacao'];
         $senha_hash = password_hash($senha, PASSWORD_DEFAULT);
 
-        $stmt = $conn->prepare("UPDATE Usuarios SET Senha = ? WHERE Email = ?");
+        $stmt = $conn->prepare("UPDATE Usuarios SET Senha = ?, validado = 'sim' WHERE LOWER(Email) = LOWER(?)");
         $stmt->bind_param("ss", $senha_hash, $email);
-        
+
         if ($stmt->execute()) {
+            $stmt->close();
             $_SESSION['msg_sucesso'] = "Senha alterada com sucesso! Faça login.";
-            unset($_SESSION['email_recuperacao']);
+            unset($_SESSION['email_recuperacao'], $_SESSION['recuperacao_verificada']);
+            session_write_close();
             header("Location: index.php");
             exit();
         } else {
+            $stmt->close();
             $erro = "Erro ao atualizar a senha. Tente novamente.";
         }
     }
@@ -45,52 +49,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
-        .strength-meter-container {
-            margin-top: -10px;
-            margin-bottom: 15px;
-            width: 100%;
-        }
-        .strength-meter {
-            height: 6px;
-            background-color: #eee;
-            border-radius: 3px;
-            overflow: hidden;
-            width: 100%;
-        }
-        .strength-meter-fill {
-            height: 100%;
-            width: 0%;
-            transition: width 0.3s ease, background-color 0.3s ease;
-        }
-        .strength-text {
-            font-size: 0.75rem;
-            color: #777;
-            margin-top: 5px;
-            display: block;
-        }
+        .strength-meter-container { margin-top: -10px; margin-bottom: 15px; width: 100%; }
+        .strength-meter { height: 6px; background-color: #eee; border-radius: 3px; overflow: hidden; width: 100%; }
+        .strength-meter-fill { height: 100%; width: 0%; transition: width 0.3s ease, background-color 0.3s ease; }
+        .strength-text { font-size: 0.75rem; color: #777; margin-top: 5px; display: block; }
     </style>
 </head>
 <body>
-
     <div class="login-container">
         <div class="login-card">
-            
             <div class="left-panel">
                 <div class="logo-container">
                     <img src="LOGOCHECKADAP.jpg" alt="Logo Check" class="logo-img">
                 </div>
             </div>
-
             <div class="divider"></div>
-
             <div class="right-panel">
-                
                 <div class="view-section active">
                     <h2 class="form-title" style="margin-bottom: 5px;">NOVA SENHA</h2>
                     <p style="color: #555; text-align: center; margin-bottom: 20px; font-size: 0.95rem;">
                         Digite sua nova senha de acesso.
                     </p>
-                    
+
                     <?php if($erro): ?>
                         <div class="error-text" style="color: #dc3545; text-align: center; font-weight: bold; margin-bottom: 15px; background: #fff8f8; padding: 10px; border-radius: 6px; border: 1px solid #ffcaca;">
                             <i class="bi bi-exclamation-circle-fill"></i> <?php echo $erro; ?>
@@ -102,7 +82,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <input type="password" name="nova_senha" id="rec-senha" placeholder="Nova Senha" required>
                             <i class="bi bi-eye toggle-password"></i>
                         </div>
-                        
+
                         <div class="strength-meter-container">
                             <div class="strength-meter">
                                 <div class="strength-meter-fill" id="rec-meter-fill"></div>
@@ -114,7 +94,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <input type="password" name="confirma_senha" placeholder="Confirme a Nova Senha" required>
                             <i class="bi bi-eye toggle-password"></i>
                         </div>
-                        
+
                         <button type="submit" class="btn-primary" style="margin-top: 20px;">SALVAR SENHA</button>
                     </form>
 
@@ -122,7 +102,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <a href="index.php" class="link-go-login">Cancelar e Voltar</a>
                     </div>
                 </div>
-
             </div>
         </div>
     </div>
@@ -151,7 +130,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             recSenha.addEventListener('input', function() {
                 const val = this.value;
                 let strength = 0;
-                
                 if (val.length >= 8) strength++;
                 if (/[A-Z]/.test(val)) strength++;
                 if (/[0-9]/.test(val)) strength++;
